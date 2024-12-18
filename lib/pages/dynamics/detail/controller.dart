@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:get/get.dart';
 import 'package:hive/hive.dart';
 import 'package:PiliPalaX/http/html.dart';
@@ -14,7 +15,7 @@ class DynamicDetailController extends GetxController {
   int? type;
   dynamic item;
   int? floor;
-  int currentPage = 0;
+  String nextOffset = "";
   bool isLoadingMore = false;
   RxString noMore = ''.obs;
   RxList<ReplyItemModel> replyList = <ReplyItemModel>[].obs;
@@ -48,27 +49,31 @@ class DynamicDetailController extends GetxController {
 
   Future queryReplyList({reqType = 'init'}) async {
     if (reqType == 'init') {
-      currentPage = 0;
+      nextOffset = "";
+      noMore.value = "";
     }
+    if (isLoadingMore) return;
+    if (noMore.value == '没有更多了') return;
     isLoadingMore = true;
     var res = await ReplyHttp.replyList(
       oid: oid!,
-      pageNum: currentPage + 1,
+      nextOffset: nextOffset,
       type: type!,
       sort: _sortType.index,
     );
     isLoadingMore = false;
     if (res['status']) {
       List<ReplyItemModel> replies = res['data'].replies;
-      acount.value = res['data'].page.acount;
+      acount.value = res['data'].cursor.allCount ?? 0;
+      nextOffset = res['data'].cursor.paginationReply.nextOffset ?? "";
       if (replies.isNotEmpty) {
-        currentPage++;
         noMore.value = '加载中...';
-        if (replies.length < 20) {
+        if (res['data'].cursor.isEnd == true) {
           noMore.value = '没有更多了';
         }
       } else {
-        noMore.value = currentPage == 0 ? '还没有评论' : '没有更多了';
+        noMore.value =
+            nextOffset == "" && reqType == 'init' ? '还没有评论' : '没有更多了';
       }
       if (reqType == 'init') {
         // 添加置顶回复
@@ -85,6 +90,8 @@ class DynamicDetailController extends GetxController {
       } else {
         replyList.addAll(replies);
       }
+    } else {
+      SmartDialog.showToast(res['msg']);
     }
     return res;
   }

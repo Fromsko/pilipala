@@ -112,10 +112,13 @@ class SettingBoxKey {
       enableAutoBrightness = 'enableAutoBrightness',
       enableAutoEnter = 'enableAutoEnter',
       enableAutoExit = 'enableAutoExit',
+      enableLongShowControl = 'enableLongShowControl',
       allowRotateScreen = 'allowRotateScreen',
       horizontalScreen = 'horizontalScreen',
       p1080 = 'p1080',
-      enableCDN = 'enableCDN',
+      CDNService = 'CDNService',
+      disableAudioCDN = 'disableAudioCDN',
+      // enableCDN = 'enableCDN',
       autoPiP = 'autoPiP',
       pipNoDanmaku = 'pipNoDanmaku',
       enableAutoLongPressSpeed = 'enableAutoLongPressSpeed',
@@ -129,7 +132,6 @@ class SettingBoxKey {
       continuePlayInBackground = 'continuePlayInBackground',
 
       /// 隐私
-      blackMidsList = 'blackMidsList',
       anonymity = 'anonymity',
 
       /// 推荐
@@ -139,6 +141,7 @@ class SettingBoxKey {
       minDurationForRcmd = 'minDurationForRcmd',
       minLikeRatioForRecommend = 'minLikeRatioForRecommend',
       exemptFilterForFollowed = 'exemptFilterForFollowed',
+      banWordForRecommend = 'banWordForRecommend',
       //filterUnfollowedRatio = 'filterUnfollowedRatio',
       applyFilterToRelatedVideos = 'applyFilterToRelatedVideos',
 
@@ -166,7 +169,6 @@ class SettingBoxKey {
       danmakuDuration = 'danmakuDuration',
       strokeWidth = 'strokeWidth',
       fontWeight = 'fontWeight',
-      danmakuFilterRule = 'danmakuFilterRule',
 
       // 代理host port
       systemProxyHost = 'systemProxyHost',
@@ -185,6 +187,7 @@ class SettingBoxKey {
           'videoPlayerShowStatusBarBackgroundColor', // 播放页状态栏显示为背景色
       dynamicsWaterfallFlow = 'dynamicsWaterfallFlow', // 动态瀑布流
       upPanelPosition = 'upPanelPosition', // up主面板位置
+      dynamicsShowAllFollowedUp = 'dynamicsShowAllFollowedUp', // 动态显示全部关注up
       useSideBar = 'useSideBar',
       enableMYBar = 'enableMYBar',
       hideSearchBar = 'hideSearchBar', // 收起顶栏
@@ -198,6 +201,11 @@ class SettingBoxKey {
 class LocalCacheKey {
   // 历史记录暂停状态 默认false 记录
   static const String historyPause = 'historyPause',
+
+      // 隐私设置-黑名单管理
+      blackMidsList = 'blackMidsList',
+      // 弹幕屏蔽规则
+      danmakuFilterRule = 'danmakuFilterRule',
       // access_key
       accessKey = 'accessKey',
 

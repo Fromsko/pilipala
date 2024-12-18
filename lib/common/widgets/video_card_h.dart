@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:get/get.dart';
 import '../../http/search.dart';
@@ -41,11 +42,17 @@ class VideoCardH extends StatelessWidget {
     try {
       type = videoItem.type;
     } catch (_) {}
+    List<VideoCustomAction> actions =
+        VideoCustomActions(videoItem, context).actions;
     final String heroTag = Utils.makeHeroTag(aid);
     return Stack(children: [
       Semantics(
           label: Utils.videoItemSemantics(videoItem),
           excludeSemantics: true,
+          customSemanticsActions: <CustomSemanticsAction, void Function()>{
+            for (var item in actions)
+              CustomSemanticsAction(label: item.title): item.onTap!,
+          },
           child: GestureDetector(
             onLongPress: () {
               if (longPress != null) {
@@ -136,11 +143,7 @@ class VideoCardH extends StatelessWidget {
         Positioned(
           bottom: 0,
           right: 10,
-          child: VideoPopupMenu(
-            size: 29,
-            iconSize: 17,
-            videoItem: videoItem,
-          ),
+          child: VideoPopupMenu(size: 29, iconSize: 17, actions: actions),
         ),
     ]);
   }
@@ -178,43 +181,49 @@ class VideoContent extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             if (videoItem.title is String) ...[
-              Text(
-                videoItem.title as String,
-                textAlign: TextAlign.start,
-                style: TextStyle(
-                  fontWeight: FontWeight.w500,
-                  fontSize: Theme.of(context).textTheme.bodyMedium!.fontSize,
-                  height: 1.4,
-                  letterSpacing: 0.3,
+              Expanded(
+                child: Text(
+                  videoItem.title as String,
+                  textAlign: TextAlign.start,
+                  style: TextStyle(
+                    fontWeight: FontWeight.w500,
+                    fontSize: Theme.of(context).textTheme.bodyMedium!.fontSize,
+                    height: 1.42,
+                    letterSpacing: 0.3,
+                  ),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
                 ),
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
               ),
             ] else ...[
-              RichText(
-                overflow: TextOverflow.ellipsis,
-                maxLines: 2,
-                text: TextSpan(
-                  children: [
-                    for (final i in videoItem.title) ...[
-                      TextSpan(
-                        text: i['text'] as String,
-                        style: TextStyle(
-                          fontWeight: FontWeight.w500,
-                          fontSize:
-                              Theme.of(context).textTheme.bodyMedium!.fontSize,
-                          letterSpacing: 0.3,
-                          color: i['type'] == 'em'
-                              ? Theme.of(context).colorScheme.primary
-                              : Theme.of(context).colorScheme.onSurface,
+              Expanded(
+                child: RichText(
+                  overflow: TextOverflow.ellipsis,
+                  maxLines: 2,
+                  text: TextSpan(
+                    children: [
+                      for (final i in videoItem.title) ...[
+                        TextSpan(
+                          text: i['text'] as String,
+                          style: TextStyle(
+                            fontWeight: FontWeight.w500,
+                            fontSize: Theme.of(context)
+                                .textTheme
+                                .bodyMedium!
+                                .fontSize,
+                            letterSpacing: 0.3,
+                            color: i['type'] == 'em'
+                                ? Theme.of(context).colorScheme.primary
+                                : Theme.of(context).colorScheme.onSurface,
+                          ),
                         ),
-                      ),
-                    ]
-                  ],
+                      ]
+                    ],
+                  ),
                 ),
               ),
             ],
-            const Spacer(),
+            // const Spacer(),
             // if (videoItem.rcmdReason != null &&
             //     videoItem.rcmdReason.content != '')
             //   Container(
@@ -236,17 +245,17 @@ class VideoContent extends StatelessWidget {
               Expanded(
                 flex: 0,
                 child: Text(
-                  "${pubdate}${showOwner ? videoItem.owner.name : ''}",
+                  "${pubdate} ${showOwner ? videoItem.owner.name : ''}",
                   maxLines: 1,
                   style: TextStyle(
-                    fontSize: 11,
+                    fontSize: Theme.of(context).textTheme.labelSmall!.fontSize,
                     height: 1,
                     color: Theme.of(context).colorScheme.outline,
                     overflow: TextOverflow.clip,
                   ),
                 ),
               ),
-            const SizedBox(height: 4),
+            const SizedBox(height: 3),
             Row(
               children: [
                 if (showView) ...[
@@ -265,7 +274,6 @@ class VideoContent extends StatelessWidget {
                 if (source == 'normal') const SizedBox(width: 24),
               ],
             ),
-            const SizedBox(height: 5),
           ],
         ),
       ),

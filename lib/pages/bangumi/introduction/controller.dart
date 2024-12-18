@@ -15,6 +15,7 @@ import 'package:PiliPalaX/utils/feed_back.dart';
 import 'package:PiliPalaX/utils/id_utils.dart';
 import 'package:PiliPalaX/utils/storage.dart';
 import 'package:share_plus/share_plus.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class BangumiIntroController extends GetxController {
   // 视频bvid
@@ -136,7 +137,7 @@ class BangumiIntroController extends GetxController {
   Future actionLikeVideo() async {
     var result = await VideoHttp.likeVideo(bvid: bvid, type: !hasLike.value);
     if (result['status']) {
-      SmartDialog.showToast(!hasLike.value ? '点赞成功' : '取消赞');
+      SmartDialog.showToast(!hasLike.value ? result['data']['toast'] : '取消赞');
       hasLike.value = !hasLike.value;
       bangumiDetail.value.stat!['likes'] =
           bangumiDetail.value.stat!['likes'] + (!hasLike.value ? 1 : -1);
@@ -237,7 +238,7 @@ class BangumiIntroController extends GetxController {
         builder: (context) {
           String videoUrl = '${HttpString.baseUrl}/video/$bvid';
           return AlertDialog(
-            title: const Text('分享方式'),
+            title: const Text('请选择'),
             actions: [
               TextButton(
                   onPressed: () {
@@ -246,10 +247,13 @@ class BangumiIntroController extends GetxController {
                   },
                   child: const Text('复制链接到剪贴板')),
               TextButton(
+                  onPressed: () {
+                    launchUrl(Uri.parse(videoUrl));
+                  },
+                  child: const Text('其它app打开')),
+              TextButton(
                   onPressed: () async {
-                    var result =
-                        await Share.share(videoUrl).whenComplete(() {});
-                    return result;
+                    await Share.share(videoUrl).whenComplete(() {});
                   },
                   child: const Text('分享视频')),
             ],
@@ -315,8 +319,7 @@ class BangumiIntroController extends GetxController {
     return result;
   }
 
-  /// 列表循环或者顺序播放时，自动播放下一个
-  bool nextPlay() {
+  bool prevPlay() {
     late List episodes;
     if (bangumiDetail.value.episodes != null) {
       episodes = bangumiDetail.value.episodes!;
@@ -325,23 +328,58 @@ class BangumiIntroController extends GetxController {
         Get.find<VideoDetailController>(tag: Get.arguments['heroTag']);
     int currentIndex =
         episodes.indexWhere((e) => e.cid == videoDetailCtr.cid.value);
-    int nextIndex = currentIndex + 1;
+    int prevIndex = currentIndex - 1;
     PlayRepeat platRepeat = videoDetailCtr.plPlayerController.playRepeat;
-    // 列表循环
-    if (platRepeat == PlayRepeat.listCycle) {
-      if (nextIndex == episodes.length - 1) {
-        nextIndex = 0;
+    if (prevIndex < 0) {
+      if (platRepeat == PlayRepeat.listCycle) {
+        prevIndex = episodes.length - 1;
+      } else {
+        return false;
       }
     }
-    if (nextIndex == episodes.length - 1 &&
-        platRepeat == PlayRepeat.listOrder) {
-      return false;
-    }
+    int cid = episodes[prevIndex].cid!;
+    String bvid = episodes[prevIndex].bvid!;
+    int aid = episodes[prevIndex].aid!;
+    changeSeasonOrbangu(bvid, cid, aid);
+    return true;
+  }
 
+  /// 列表循环或者顺序播放时，自动播放下一个；自动连播时，播放相关视频
+  bool nextPlay() {
+    late List episodes;
+    VideoDetailController videoDetailCtr =
+        Get.find<VideoDetailController>(tag: Get.arguments['heroTag']);
+    PlayRepeat platRepeat = videoDetailCtr.plPlayerController.playRepeat;
+
+    if (bangumiDetail.value.episodes != null) {
+      episodes = bangumiDetail.value.episodes!;
+    } else {
+      if (platRepeat == PlayRepeat.autoPlayRelated) {
+        return playRelated();
+      }
+    }
+    int currentIndex =
+        episodes.indexWhere((e) => e.cid == videoDetailCtr.cid.value);
+    int nextIndex = currentIndex + 1;
+    // 列表循环
+    if (nextIndex == episodes.length - 1) {
+      if (platRepeat == PlayRepeat.listCycle) {
+        nextIndex = 0;
+      } else if (platRepeat == PlayRepeat.autoPlayRelated) {
+        return playRelated();
+      } else {
+        return false;
+      }
+    }
     int cid = episodes[nextIndex].cid!;
     String bvid = episodes[nextIndex].bvid!;
     int aid = episodes[nextIndex].aid!;
     changeSeasonOrbangu(bvid, cid, aid);
     return true;
+  }
+
+  bool playRelated() {
+    SmartDialog.showToast('番剧暂无相关视频');
+    return false;
   }
 }

@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:get/get.dart';
+import '../../models/home/rcmd/result.dart';
 import '../../models/model_rec_video_item.dart';
 import 'stat/danmu.dart';
 import 'stat/view.dart';
@@ -127,10 +129,16 @@ class VideoCardV extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     String heroTag = Utils.makeHeroTag(videoItem.id);
+    List<VideoCustomAction> actions =
+        VideoCustomActions(videoItem, context).actions;
     return Stack(children: [
       Semantics(
         label: Utils.videoItemSemantics(videoItem),
         excludeSemantics: true,
+        customSemanticsActions: <CustomSemanticsAction, void Function()>{
+          for (var item in actions)
+            CustomSemanticsAction(label: item.title): item.onTap!,
+        },
         child: Card(
             elevation: 0,
             clipBehavior: Clip.hardEdge,
@@ -187,12 +195,12 @@ class VideoCardV extends StatelessWidget {
       ),
       if (videoItem.goto == 'av')
         Positioned(
-            right: 0,
-            bottom: 0,
+            right: -5,
+            bottom: -2,
             child: VideoPopupMenu(
               size: 29,
               iconSize: 17,
-              videoItem: videoItem,
+              actions: actions,
             )),
     ]);
   }
@@ -218,6 +226,7 @@ class VideoContent extends StatelessWidget {
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
+                        fontWeight: FontWeight.w500,
                         height: 1.38,
                       )),
                 ),
@@ -239,10 +248,9 @@ class VideoContent extends StatelessWidget {
                     fs: 9,
                   )
                 ],
-                if (videoItem.rcmdReason != null &&
-                    videoItem.rcmdReason.content != '') ...[
+                if (videoItem.rcmdReason != null) ...[
                   PBadge(
-                    text: videoItem.rcmdReason.content,
+                    text: videoItem.rcmdReason,
                     stack: 'normal',
                     size: 'small',
                     type: 'color',
@@ -280,7 +288,7 @@ class VideoContent extends StatelessWidget {
                     ),
                   ),
                 ),
-                if (videoItem.goto == 'av') const SizedBox(width: 24)
+                if (videoItem.goto == 'av') const SizedBox(width: 10)
               ],
             ),
           ],
@@ -307,7 +315,7 @@ class VideoStat extends StatelessWidget {
           view: videoItem.stat.view,
           goto: videoItem.goto,
         ),
-        const SizedBox(width: 8),
+        const SizedBox(width: 6),
         if (videoItem.goto != 'picture')
           StatDanMu(
             theme: 'gray',
@@ -315,16 +323,44 @@ class VideoStat extends StatelessWidget {
           ),
         if (videoItem is RecVideoItemModel) ...<Widget>[
           const Spacer(),
-          RichText(
-            maxLines: 1,
-            text: TextSpan(
-                style: TextStyle(
-                  fontSize: Theme.of(context).textTheme.labelSmall!.fontSize,
-                  color: Theme.of(context).colorScheme.outline.withOpacity(0.8),
-                ),
-                text: Utils.formatTimestampToRelativeTime(videoItem.pubdate)),
-          ),
-          const SizedBox(width: 4),
+          Expanded(
+              flex: 0,
+              child: RichText(
+                maxLines: 1,
+                text: TextSpan(
+                    style: TextStyle(
+                      fontSize:
+                          Theme.of(context).textTheme.labelSmall!.fontSize,
+                      color: Theme.of(context)
+                          .colorScheme
+                          .outline
+                          .withOpacity(0.8),
+                    ),
+                    text:
+                        Utils.formatTimestampToRelativeTime(videoItem.pubdate)),
+              )),
+          const SizedBox(width: 2),
+        ],
+        if (videoItem is RecVideoItemAppModel &&
+            videoItem.desc != null &&
+            videoItem.desc.contains(' · ')) ...<Widget>[
+          const Spacer(),
+          Expanded(
+              flex: 0,
+              child: RichText(
+                maxLines: 1,
+                text: TextSpan(
+                    style: TextStyle(
+                      fontSize:
+                          Theme.of(context).textTheme.labelSmall!.fontSize,
+                      color: Theme.of(context)
+                          .colorScheme
+                          .outline
+                          .withOpacity(0.8),
+                    ),
+                    text: Utils.shortenChineseDateString(videoItem.desc.split(' · ').last)),
+              )),
+          const SizedBox(width: 2),
         ]
       ],
     );

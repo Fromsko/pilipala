@@ -3,8 +3,10 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:hive/hive.dart';
 import 'package:PiliPalaX/models/video/play/quality.dart';
+import 'package:PiliPalaX/models/video/play/CDN.dart';
 import 'package:PiliPalaX/pages/setting/widgets/select_dialog.dart';
 import 'package:PiliPalaX/utils/storage.dart';
+import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 
 import 'widgets/switch_item.dart';
 
@@ -23,6 +25,7 @@ class _VideoSettingState extends State<VideoSetting> {
   late dynamic secondDecode;
   late dynamic hardwareDecoding;
   late dynamic videoSync;
+  late dynamic defaultCDNService;
 
   @override
   void initState() {
@@ -39,6 +42,8 @@ class _VideoSettingState extends State<VideoSetting> {
         defaultValue: Platform.isAndroid ? 'auto-safe' : 'auto');
     videoSync =
         setting.get(SettingBoxKey.videoSync, defaultValue: 'display-resample');
+    defaultCDNService = setting.get(SettingBoxKey.CDNService,
+        defaultValue: CDNService.backupUrl.code);
   }
 
   @override
@@ -80,11 +85,60 @@ class _VideoSettingState extends State<VideoSetting> {
             setKey: SettingBoxKey.p1080,
             defaultVal: true,
           ),
-          const SetSwitchItem(
-            title: 'CDN优化',
-            subTitle: '使用优质CDN线路',
-            leading: Icon(Icons.network_check_outlined),
-            setKey: SettingBoxKey.enableCDN,
+          ListTile(
+            enabled: false,
+            onTap: null,
+            title: Text("b站定向流量支持", style: titleStyle),
+            subtitle:
+                Text("若套餐含b站定向流量，则会自动使用。可查阅运营商的流量记录确认。", style: subTitleStyle),
+            leading: const Icon(Icons.perm_data_setting_outlined),
+            trailing: Transform.scale(
+              alignment: Alignment.centerRight, // 缩放Switch的大小后保持右侧对齐, 避免右侧空隙过大
+              scale: 0.8,
+              child: Switch(
+                  thumbIcon: WidgetStateProperty.resolveWith<Icon?>(
+                      (Set<WidgetState> states) {
+                    if (states.isNotEmpty &&
+                        states.first == WidgetState.selected) {
+                      return const Icon(Icons.done);
+                    }
+                    return null; // All other states will use the default thumbIcon.
+                  }),
+                  value: true,
+                  onChanged: null),
+            ),
+          ),
+          ListTile(
+            title: Text('CDN 设置', style: titleStyle),
+            leading: Icon(MdiIcons.cloudPlusOutline),
+            subtitle: Text(
+              '当前使用：${CDNServiceCode.fromCode(defaultCDNService)!.description}，部分 CDN 可能失效，如无法播放请尝试切换',
+              style: subTitleStyle,
+            ),
+            onTap: () async {
+              String? result = await showDialog(
+                context: context,
+                builder: (context) {
+                  return SelectDialog<String>(
+                      title: 'CDN 设置',
+                      value: defaultCDNService,
+                      values: CDNService.values.map((e) {
+                        return {'title': e.description, 'value': e.code};
+                      }).toList());
+                },
+              );
+              if (result != null) {
+                defaultCDNService = result;
+                setting.put(SettingBoxKey.CDNService, result);
+                setState(() {});
+              }
+            },
+          ),
+          SetSwitchItem(
+            title: '音频不跟随 CDN 设置',
+            subTitle: '直接采用备用 URL，可解决部分视频无声',
+            leading: Icon(MdiIcons.musicNotePlus),
+            setKey: SettingBoxKey.disableAudioCDN,
             defaultVal: true,
           ),
           ListTile(
@@ -117,7 +171,7 @@ class _VideoSettingState extends State<VideoSetting> {
           ListTile(
             dense: false,
             title: Text('默认音质', style: titleStyle),
-            leading: const Icon(Icons.audiotrack_outlined),
+            leading: const Icon(Icons.music_video_outlined),
             subtitle: Text(
               '当前音质：${AudioQualityCode.fromCode(defaultAudioQa)!.description!}',
               style: subTitleStyle,
@@ -200,14 +254,14 @@ class _VideoSettingState extends State<VideoSetting> {
               title: '优先使用 OpenSL ES 输出音频',
               leading: Icon(Icons.speaker_outlined),
               subTitle:
-                  '关闭则优先使用AudioTrack输出音频（此项即mpv的--ao），若遇系统音效丢失、无声等问题请尝试关闭。',
+                  '关闭则优先使用AudioTrack输出音频（此项即mpv的--ao），若遇系统音效丢失、无声、音画不同步等问题请尝试关闭。',
               setKey: SettingBoxKey.useOpenSLES,
               defaultVal: true,
             ),
           const SetSwitchItem(
             title: '扩大缓冲区',
             leading: Icon(Icons.storage_outlined),
-            subTitle: '默认缓冲区为视频5MB/直播32MB，开启后为32MB/64MB，加载时间变长',
+            subTitle: '默认缓冲区为视频3MB/直播16MB，开启后为32MB/64MB，加载时间变长',
             setKey: SettingBoxKey.expandBuffer,
             defaultVal: false,
           ),

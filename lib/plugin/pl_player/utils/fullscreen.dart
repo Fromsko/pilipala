@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:device_info_plus/device_info_plus.dart';
@@ -6,6 +7,12 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 
 import '../../../utils/storage.dart';
+
+Timer? screenTimer;
+void stopScreenTimer() {
+  screenTimer?.cancel();
+  screenTimer = null;
+}
 
 //横屏
 Future<void> landScape() async {
@@ -32,8 +39,9 @@ Future<void> verticalScreenForTwoSeconds() async {
   await SystemChrome.setPreferredOrientations([
     DeviceOrientation.portraitUp,
   ]);
-  Future.delayed(const Duration(seconds: 2), () {
+  screenTimer = Timer(const Duration(seconds: 2), () {
     autoScreen();
+    screenTimer = null;
   });
 }
 
@@ -56,6 +64,10 @@ Future<void> autoScreen() async {
     DeviceOrientation.landscapeLeft,
     DeviceOrientation.landscapeRight,
   ]);
+}
+
+Future<void> fullAutoModeForceSensor() async {
+  await AutoOrientation.fullAutoMode(forceSensor: true);
 }
 
 Future<void> hideStatusBar() async {

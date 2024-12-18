@@ -3,43 +3,42 @@
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
-import 'package:hive/hive.dart';
-import '../utils/storage.dart';
 
 class ApiInterceptor extends Interceptor {
-  @override
-  void onRequest(RequestOptions options, RequestInterceptorHandler handler) {
-    // print("请求之前");
-    // 在请求之前添加头部或认证信息
-    // options.headers['Authorization'] = 'Bearer token';
-    // options.headers['Content-Type'] = 'application/json';
-    handler.next(options);
-  }
+  // @override
+  // void onRequest(RequestOptions options, RequestInterceptorHandler handler) {
+  //   print("请求之前");
+  //   // 在请求之前添加头部或认证信息
+  //   options.headers['Authorization'] = 'Bearer token';
+  //   options.headers['Content-Type'] = 'application/json';
+  //   handler.next(options);
+  // }
 
-  @override
-  void onResponse(Response response, ResponseInterceptorHandler handler) {
-    try {
-      if (response.statusCode == 302) {
-        final List<String> locations = response.headers['location']!;
-        if (locations.isNotEmpty) {
-          if (locations.first.startsWith('https://www.mcbbs.net')) {
-            final Uri uri = Uri.parse(locations.first);
-            final String? accessKey = uri.queryParameters['access_key'];
-            final String? mid = uri.queryParameters['mid'];
-            try {
-              Box localCache = GStorage.localCache;
-              localCache.put(LocalCacheKey.accessKey,
-                  <String, String?>{'mid': mid, 'value': accessKey});
-            } catch (_) {}
-          }
-        }
-      }
-    } catch (err) {
-      print('ApiInterceptor: $err');
-    }
+  // @override
+  // void onResponse(Response response, ResponseInterceptorHandler handler) {
+  //   try {
+  //     if (response.statusCode == 302) {
+  //       final List<String> locations = response.headers['location']!;
+  //       if (locations.isNotEmpty) {
+  //         if (locations.first.startsWith('https://www.mcbbs.net')) {
+  //           print('ApiInterceptor@@@@@: ${locations.first}');
+  //           final Uri uri = Uri.parse(locations.first);
+  //           final String? accessKey = uri.queryParameters['access_key'];
+  //           final String? mid = uri.queryParameters['mid'];
+  //           try {
+  //             Box localCache = GStorage.localCache;
+  //             localCache.put(LocalCacheKey.accessKey,
+  //                 <String, String?>{'mid': mid, 'value': accessKey});
+  //           } catch (_) {}
+  //         }
+  //       }
+  //     }
+  //   } catch (err) {
+  //     print('ApiInterceptor: $err');
+  //   }
 
-    handler.next(response);
-  }
+  //   handler.next(response);
+  // }
 
   @override
   void onError(DioException err, ErrorInterceptorHandler handler) async {
@@ -47,11 +46,14 @@ class ApiInterceptor extends Interceptor {
     // handler.next(err);
     String url = err.requestOptions.uri.toString();
     print('🌹🌹ApiInterceptor: $url');
-    if (!url.contains('heartbeat')) {
+    // 屏蔽弹幕、心跳、人数请求的错误提示
+    if (!url.contains('heartbeat') &&
+        !url.contains('seg.so') &&
+        !url.contains('online/total')) {
       SmartDialog.showToast(
-        await dioError(err),
+        await dioError(err) + url,
         displayType: SmartToastType.onlyRefresh,
-        displayTime: const Duration(milliseconds: 1500),
+        displayTime: const Duration(milliseconds: 1200),
       );
     }
     super.onError(err, handler);
@@ -75,7 +77,7 @@ class ApiInterceptor extends Interceptor {
         return '发送请求超时，请检查网络设置';
       case DioExceptionType.unknown:
         final String res = await checkConnect();
-        return '$res，网络异常！';
+        return '$res网络异常 ${error.error}';
     }
   }
 
@@ -84,17 +86,17 @@ class ApiInterceptor extends Interceptor {
         await Connectivity().checkConnectivity();
     switch (connectivityResult) {
       case ConnectivityResult.mobile:
-        return '正在使用移动流量';
+        return '流量';
       case ConnectivityResult.wifi:
-        return '正在使用wifi';
+        return 'Wi-Fi';
       case ConnectivityResult.ethernet:
-        return '正在使用局域网';
+        return '局域';
       case ConnectivityResult.vpn:
-        return '正在使用代理网络';
+        return '代理';
       case ConnectivityResult.other:
-        return '正在使用其他网络';
+        return '其他';
       case ConnectivityResult.none:
-        return '未连接到任何网络';
+        return '无';
       default:
         return '';
     }

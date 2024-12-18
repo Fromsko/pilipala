@@ -61,6 +61,7 @@ class _HistorySearchPageState extends State<HistorySearchPage> {
             controller: _historySearchCtr.controller.value,
             textInputAction: TextInputAction.search,
             onChanged: (value) => _historySearchCtr.onChange(value),
+            textAlignVertical: TextAlignVertical.center,
             decoration: InputDecoration(
               hintText: _historySearchCtr.hintText,
               border: InputBorder.none,
@@ -90,7 +91,7 @@ class _HistorySearchPageState extends State<HistorySearchPage> {
                           mainAxisSpacing: StyleString.cardSpace,
                           crossAxisSpacing: StyleString.safeSpace,
                           maxCrossAxisExtent: Grid.maxRowWidth * 2,
-                          childAspectRatio: StyleString.aspectRatio * 2.3,
+                          childAspectRatio: StyleString.aspectRatio * 2.4,
                           mainAxisExtent: 0),
                       delegate: SliverChildBuilderDelegate(
                         (context, index) {

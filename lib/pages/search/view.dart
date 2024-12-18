@@ -66,6 +66,7 @@ class _SearchPageState extends State<SearchPage> with RouteAware {
             controller: _searchController.controller.value,
             textInputAction: TextInputAction.search,
             onChanged: (value) => _searchController.onChange(value),
+            textAlignVertical: TextAlignVertical.center,
             decoration: InputDecoration(
               hintText: _searchController.hintText,
               border: InputBorder.none,
@@ -190,11 +191,15 @@ class _SearchPageState extends State<SearchPage> with RouteAware {
                       );
                     } else {
                       return CustomScrollView(
+                        shrinkWrap: true,
                         slivers: [
                           HttpError(
                             errMsg: data['msg'],
-                            fn: () => setState(() {}),
-                          )
+                            fn: () => setState(() {
+                              _futureBuilderFuture =
+                                  _searchController.queryHotSearchList();
+                            }),
+                          ),
                         ],
                       );
                     }
@@ -222,7 +227,8 @@ class _SearchPageState extends State<SearchPage> with RouteAware {
     return Obx(
       () => Container(
         width: double.infinity,
-        padding: const EdgeInsets.fromLTRB(10, 25, 6, 0),
+        padding: EdgeInsets.fromLTRB(
+            10, 25, 6, MediaQuery.of(context).padding.bottom + 50),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [

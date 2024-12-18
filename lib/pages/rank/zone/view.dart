@@ -98,21 +98,20 @@ class _ZonePageState extends State<ZonePage>
                             mainAxisSpacing: StyleString.safeSpace,
                             crossAxisSpacing: StyleString.safeSpace,
                             maxCrossAxisExtent: Grid.maxRowWidth * 2,
-                            childAspectRatio: StyleString.aspectRatio * 2.3,
-                            mainAxisExtent: 0),
+                            childAspectRatio: StyleString.aspectRatio * 2.4,
+                            mainAxisExtent: 13),
                         delegate: SliverChildBuilderDelegate((context, index) {
                           return VideoCardH(
                             videoItem: _zoneController.videoList[index],
                             showPubdate: true,
                             longPress: () {
-                              _zoneController.popupDialog = _createPopupDialog(
-                                  _zoneController.videoList[index]);
+                              _zoneController.popupDialog.add(
+                                  _createPopupDialog(
+                                      _zoneController.videoList[index]));
                               Overlay.of(context)
-                                  .insert(_zoneController.popupDialog!);
+                                  .insert(_zoneController.popupDialog.last!);
                             },
-                            longPressEnd: () {
-                              _zoneController.popupDialog?.remove();
-                            },
+                            longPressEnd: _removePopupDialog,
                           );
                         }, childCount: _zoneController.videoList.length),
                       ),
@@ -135,7 +134,7 @@ class _ZonePageState extends State<ZonePage>
                         mainAxisSpacing: StyleString.safeSpace,
                         crossAxisSpacing: StyleString.safeSpace,
                         maxCrossAxisExtent: Grid.maxRowWidth * 2,
-                        childAspectRatio: StyleString.aspectRatio * 2.3,
+                        childAspectRatio: StyleString.aspectRatio * 2.4,
                         mainAxisExtent: 0),
                     delegate: SliverChildBuilderDelegate((context, index) {
                       return const VideoCardHSkeleton();
@@ -155,12 +154,19 @@ class _ZonePageState extends State<ZonePage>
     );
   }
 
+  void _removePopupDialog() {
+    _zoneController.popupDialog.last?.remove();
+    _zoneController.popupDialog.removeLast();
+  }
+
   OverlayEntry _createPopupDialog(videoItem) {
     return OverlayEntry(
       builder: (context) => AnimatedDialog(
-        closeFn: _zoneController.popupDialog?.remove,
+        closeFn: _removePopupDialog,
         child: OverlayPop(
-            videoItem: videoItem, closeFn: _zoneController.popupDialog?.remove),
+          videoItem: videoItem,
+          closeFn: _removePopupDialog,
+        ),
       ),
     );
   }

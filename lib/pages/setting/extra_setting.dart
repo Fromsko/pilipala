@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:get/get.dart';
 import 'package:hive/hive.dart';
 import 'package:PiliPalaX/models/common/dynamics_type.dart';
@@ -258,7 +257,7 @@ class _ExtraSettingState extends State<ExtraSetting> {
                   return SelectDialog<int>(
                       title: '动态展示',
                       value: defaultDynamicType,
-                      values: DynamicsType.values.map((e) {
+                      values: DynamicsType.values.sublist(0, 4).map((e) {
                         return {'title': e.labels, 'value': e.index};
                       }).toList());
                 },

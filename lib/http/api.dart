@@ -8,7 +8,8 @@ class Api {
 
   // APP端不感兴趣、取消不感兴趣
   static const String feedDislike = '${HttpString.appBaseUrl}/x/feed/dislike';
-  static const String feedDislikeCancel = '${HttpString.appBaseUrl}/x/feed/dislike/cancel';
+  static const String feedDislikeCancel =
+      '${HttpString.appBaseUrl}/x/feed/dislike/cancel';
 
   // 热门视频
   static const String hotList = '/x/web-interface/popular';
@@ -16,6 +17,10 @@ class Api {
   // 视频流
   // https://github.com/SocialSisterYi/bilibili-API-collect/blob/master/docs/video/videostream_url.md
   static const String videoUrl = '/x/player/wbi/playurl';
+
+  // 番剧视频流
+  // https://api.bilibili.com/pgc/player/web/playurl?cid=104236640&bvid=BV13t411n7ex
+  static const String bangumiVideoUrl = '/pgc/player/web/playurl';
 
   // 字幕
   // aid, cid
@@ -35,8 +40,10 @@ class Api {
   /// like	num	操作方式	必要	1：点赞 2：取消赞
   // csrf	str	CSRF Token（位于cookie）	必要
   // https://api.bilibili.com/x/web-interface/archive/like
-  static const String likeVideo = '/x/web-interface/archive/like';
+  // static const String likeVideo = '/x/web-interface/archive/like';
 
+  // 改用app端点赞接口
+  static const String likeVideo = '${HttpString.appBaseUrl}/x/v2/view/like';
   //判断视频是否被点赞（双端）Get
   // access_key	str	APP登录Token	APP方式必要
   /// aid	num	稿件avid	必要（可选）	avid与bvid任选一个
@@ -50,7 +57,8 @@ class Api {
   /// access_key str	APP登录Token 必要
   /// aid num	稿件avid	必要
   ///
-  static const String dislikeVideo = '${HttpString.appBaseUrl}/x/v2/view/dislike';
+  static const String dislikeVideo =
+      '${HttpString.appBaseUrl}/x/v2/view/dislike';
 
   // 投币视频（web端）POST
   /// aid	num	稿件avid	必要（可选）	avid与bvid任选一个
@@ -59,7 +67,10 @@ class Api {
   /// select_like	num	是否附加点赞	非必要	0：不点赞 1：同时点赞 默认为0
   // csrf	str	CSRF Token（位于cookie）	必要
   // https://api.bilibili.com/x/web-interface/coin/add
-  static const String coinVideo = '/x/web-interface/coin/add';
+  // static const String coinVideo = '/x/web-interface/coin/add';
+
+  // 改用app端投币接口
+  static const String coinVideo = '${HttpString.appBaseUrl}/x/v2/view/coin/add';
 
   // 判断视频是否被投币（双端）GET
   // access_key	str	APP登录Token	APP方式必要
@@ -118,7 +129,7 @@ class Api {
 
   // 评论列表
   // https://api.bilibili.com/x/v2/reply/main?csrf=6e22efc1a47225ea25f901f922b5cfdd&mode=3&oid=254175381&pagination_str=%7B%22offset%22:%22%22%7D&plat=1&seek_rpid=0&type=11
-  static const String replyList = '/x/v2/reply';
+  static const String replyList = '/x/v2/reply/main';
 
   // 楼中楼
   static const String replyReplyList = '/x/v2/reply/reply';
@@ -383,13 +394,16 @@ class Api {
   //https://api.bilibili.com/x/msgfeed/like?platform=web&build=0&mobi_app=web
   static const String msgFeedLike = '/x/msgfeed/like';
   //https://message.bilibili.com/x/sys-msg/query_user_notify?csrf=xxxx&csrf=xxxx&page_size=20&build=0&mobi_app=web
-  static const String msgSysUserNotify = '${HttpString.messageBaseUrl}/x/sys-msg/query_user_notify';
+  static const String msgSysUserNotify =
+      '${HttpString.messageBaseUrl}/x/sys-msg/query_user_notify';
   //https://message.bilibili.com/x/sys-msg/query_unified_notify?csrf=xxxx&csrf=xxxx&page_size=10&build=0&mobi_app=web
-  static const String msgSysUnifiedNotify = '${HttpString.messageBaseUrl}/x/sys-msg/query_unified_notify';
+  static const String msgSysUnifiedNotify =
+      '${HttpString.messageBaseUrl}/x/sys-msg/query_unified_notify';
 
   // 系统信息光标更新（已读标记）
   //https://message.bilibili.com/x/sys-msg/update_cursor?csrf=xxxx&csrf=xxxx&cursor=1705288500000000000&has_up=0&build=0&mobi_app=web
-  static const String msgSysUpdateCursor = '${HttpString.messageBaseUrl}/x/sys-msg/update_cursor';
+  static const String msgSysUpdateCursor =
+      '${HttpString.messageBaseUrl}/x/sys-msg/update_cursor';
 
   /// 私聊
   ///  'https://api.vc.bilibili.com/session_svr/v1/session_svr/get_sessions?
@@ -462,12 +476,19 @@ class Api {
   // web端验证码登录
 
   // web端密码登录
+  static const String logInByWebPwd =
+      '${HttpString.passBaseUrl}/x/passport-login/web/login';
+
+  // 获取guestID
+  // static const String getGuestId = '/x/passport-user/guest/reg';
 
   // app端短信验证码
   static const String appSmsCode =
       '${HttpString.passBaseUrl}/x/passport-login/sms/send';
 
   // app端验证码登录
+  static const String logInByAppSms =
+      '${HttpString.passBaseUrl}/x/passport-login/login/sms';
 
   // 获取短信验证码
   // static const String appSafeSmsCode =
@@ -477,9 +498,37 @@ class Api {
   /// username
   /// password
   /// key
-  /// rhash
-  static const String loginInByPwdApi =
+  /// salt
+  static const String loginByPwdApi =
       '${HttpString.passBaseUrl}/x/passport-login/oauth2/login';
+
+  /// 密码登录时，提示“本次登录环境存在风险, 需使用手机号进行验证或绑定”
+  /// 根据https://ivan.hanloth.cn/archives/530/流程进行手机号验证
+  /// tmp_code
+  static const String safeCenterGetInfo =
+      '${HttpString.passBaseUrl}/x/safecenter/user/info';
+
+  /// 验证绑定手机号前的人机验证
+  static const String preCapture =
+      '${HttpString.passBaseUrl}/x/safecenter/captcha/pre';
+
+  /// 密码登录时风控发送手机验证码
+  ///sms_type	str	loginTelCheck
+  /// tmp_code	str	验证标记代码	来自数据处理中的解析出的参数tmp_token
+  /// gee_challenge	str	极验id	申请人机验证时得到(data->gee_challenge)
+  /// gee_seccode	str	极验key	人机验证后得到(result->geetest_seccode)
+  /// gee_validate	str	极验result	人机验证后得到(result->geetest_validate)
+  /// recaptcha_token	str	验证token	申请人机验证时得到(data->recaptcha_token)
+  static const String safeCenterSmsCode =
+      '${HttpString.passBaseUrl}/x/safecenter/common/sms/send';
+
+  /// type	str	loginTelCheck
+  /// code	int	验证码内容
+  /// tmp_code	str	验证标记代码	来自数据处理中的解析出的参数tmp_token
+  /// request_id	str	验证请求标记	来自数据处理中的解析出的参数requestId
+  /// captcha_key	str	验证秘钥	来自申请验证码的captcha_key（data->captcha_key）
+  static const String safeCenterSmsVerify =
+      '${HttpString.passBaseUrl}/x/safecenter/login/tel/verify';
 
   /// 密码加密密钥
   /// disable_rcmd

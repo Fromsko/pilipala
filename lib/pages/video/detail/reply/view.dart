@@ -65,7 +65,7 @@ class _VideoReplyPanelState extends State<VideoReplyPanel>
     fabAnimationCtr = AnimationController(
         vsync: this, duration: const Duration(milliseconds: 100));
 
-    _videoReplyController.queryReplyList();
+    _videoReplyController.queryReplyList(type: 'init');
 
     fabAnimationCtr.forward();
     scrollListener();
@@ -188,7 +188,9 @@ class _VideoReplyPanelState extends State<VideoReplyPanel>
               ),
               Obx(
                 () => _videoReplyController.isLoadingMore &&
-                        _videoReplyController.replyList.isEmpty
+                        _videoReplyController.replyList.isEmpty &&
+                        (_videoReplyController.noMore.value == '' ||
+                            _videoReplyController.noMore.value == '加载中...')
                     ? SliverList(
                         delegate: SliverChildBuilderDelegate(
                             (BuildContext context, index) {

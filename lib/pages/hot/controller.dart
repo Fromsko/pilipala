@@ -1,3 +1,4 @@
+import 'package:PiliPalaX/utils/extension.dart';
 import 'package:get/get.dart';
 import 'package:flutter/material.dart';
 import 'package:PiliPalaX/http/video.dart';
@@ -10,7 +11,7 @@ class HotController extends GetxController {
   RxList<HotVideoItemModel> videoList = <HotVideoItemModel>[].obs;
   bool isLoadingMore = false;
   bool flag = false;
-  OverlayEntry? popupDialog;
+  List<OverlayEntry?> popupDialog = <OverlayEntry?>[];
 
   // 获取推荐
   Future queryHotFeed(type) async {
@@ -48,13 +49,7 @@ class HotController extends GetxController {
   }
 
   // 返回顶部
-  void animateToTop() async {
-    if (scrollController.offset >=
-        MediaQuery.of(Get.context!).size.height * 5) {
-      scrollController.jumpTo(0);
-    } else {
-      await scrollController.animateTo(0,
-          duration: const Duration(milliseconds: 500), curve: Curves.easeInOut);
-    }
+  void animateToTop() {
+    scrollController.animToTop();
   }
 }

@@ -1,7 +1,7 @@
 import 'dart:async';
 
-import 'package:PiliPalaX/common/constants.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 import 'package:hive/hive.dart';
 import 'package:PiliPalaX/models/common/dynamic_badge_mode.dart';
@@ -110,58 +110,66 @@ class _MainAppState extends State<MainApp> with SingleTickerProviderStateMixin {
   Widget build(BuildContext context) {
     return PopScope(
       canPop: false,
-      onPopInvoked: (bool didPop) async {
+      onPopInvokedWithResult: (bool didPop, Object? result) async {
         _mainController.onBackPressed(context);
       },
-      child: Scaffold(
-        extendBody: true,
-        body: Stack(children: [
-          // gradient background
-          if (enableGradientBg) ...[
-            Align(
-              alignment: Alignment.topLeft,
-              child: Opacity(
-                opacity: 0.6,
-                child: Container(
-                  width: MediaQuery.of(context).size.width,
-                  height: MediaQuery.of(context).size.height,
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
+      child: AnnotatedRegion<SystemUiOverlayStyle>(
+        value: SystemUiOverlayStyle(
+          systemNavigationBarColor: Colors.transparent,
+          systemNavigationBarIconBrightness:
+              Theme.of(context).brightness == Brightness.light
+                  ? Brightness.dark
+                  : Brightness.light, // 设置虚拟按键图标颜色
+        ),
+        child: Scaffold(
+          extendBody: true,
+          body: Stack(children: [
+            // gradient background
+            if (enableGradientBg)
+              Align(
+                alignment: Alignment.topLeft,
+                child: Opacity(
+                  opacity: 0.6,
+                  child: Container(
+                    width: MediaQuery.of(context).size.width,
+                    height: MediaQuery.of(context).size.height,
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
                         colors: [
                           Theme.of(context)
                               .colorScheme
                               .primary
-                              .withOpacity(0.9),
+                              .withOpacity(0.6),
                           Theme.of(context)
                               .colorScheme
-                              .primary
-                              .withOpacity(0.5),
+                              .primaryContainer
+                              .withOpacity(0.6),
                           Theme.of(context).colorScheme.surface
                         ],
                         begin: Alignment.topLeft,
                         end: Alignment.bottomRight,
-                        stops: const [0, 0.0034, 0.34]),
+                        stops: const [0.1, 0.4, 0.7],
+                      ),
+                    ),
                   ),
                 ),
               ),
-            ),
-          ],
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              if (useSideBar) ...[
-                SizedBox(
-                    width: 55 + MediaQuery.of(context).padding.left,
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                if (useSideBar)
+                  SizedBox(
+                    width: context.width * 0.0387 +
+                        36.801 +
+                        MediaQuery.of(context).padding.left,
                     child: NavigationRail(
-                      groupAlignment: 0.0,
-                      minWidth: 40.0,
-                      backgroundColor: Theme.of(context)
-                          .colorScheme
-                          .surface
-                          .withOpacity(0.2),
+                      groupAlignment: 1,
+                      minWidth: context.width * 0.0286 + 28.56,
+                      backgroundColor: Colors.transparent,
                       selectedIndex: _mainController.selectedIndex,
                       onDestinationSelected: (value) => setIndex(value),
                       labelType: NavigationRailLabelType.none,
+                      leading: UserAndSearchVertical(ctr: _homeController),
                       destinations: _mainController.navigationBars
                           .map((e) => NavigationRailDestination(
                                 icon: Badge(
@@ -169,11 +177,8 @@ class _MainAppState extends State<MainApp> with SingleTickerProviderStateMixin {
                                           DynamicBadgeMode.number
                                       ? Text(e['count'].toString())
                                       : null,
-                                  padding: EdgeInsets.fromLTRB(
-                                      2 + MediaQuery.of(context).padding.left,
-                                      0,
-                                      2,
-                                      0),
+                                  padding:
+                                      const EdgeInsets.symmetric(horizontal: 4),
                                   isLabelVisible:
                                       _mainController.dynamicBadgeType !=
                                               DynamicBadgeMode.hidden &&
@@ -187,44 +192,56 @@ class _MainAppState extends State<MainApp> with SingleTickerProviderStateMixin {
                                 ),
                                 selectedIcon: e['selectIcon'],
                                 label: Text(e['label']),
-                                padding:
-                                    const EdgeInsets.symmetric(vertical: 6),
+                                padding: EdgeInsets.symmetric(
+                                    vertical: 0.01 * context.height),
                               ))
                           .toList(),
-                    )),
-              ],
-              Expanded(
-                child: PageView(
-                  physics: const NeverScrollableScrollPhysics(),
-                  controller: _mainController.pageController,
-                  onPageChanged: (index) {
-                    _mainController.selectedIndex = index;
-                    setState(() {});
-                  },
-                  children: _mainController.pages,
+                      trailing: SizedBox(height: 0.1 * context.height),
+                    ),
+                  ),
+                VerticalDivider(
+                  width: 1,
+                  indent: MediaQuery.of(context).padding.top,
+                  endIndent: MediaQuery.of(context).padding.bottom,
+                  color:
+                      Theme.of(context).colorScheme.outline.withOpacity(0.06),
                 ),
-              ),
-            ],
-          )
-        ]),
-        bottomNavigationBar: useSideBar
-            ? null
-            : StreamBuilder(
-                stream: _mainController.hideTabBar
-                    ? _mainController.bottomBarStream.stream
-                    : StreamController<bool>.broadcast().stream,
-                initialData: true,
-                builder: (context, AsyncSnapshot snapshot) {
-                  return AnimatedSlide(
-                    curve: Curves.easeInOutCubicEmphasized,
-                    duration: const Duration(milliseconds: 500),
-                    offset: Offset(0, snapshot.data ? 0 : 1),
-                    child: enableMYBar
-                        ? NavigationBar(
-                            onDestinationSelected: (value) => setIndex(value),
-                            selectedIndex: _mainController.selectedIndex,
-                            destinations: <Widget>[
-                              ..._mainController.navigationBars.map((e) {
+                Expanded(
+                  child: PageView(
+                    physics: const NeverScrollableScrollPhysics(),
+                    controller: _mainController.pageController,
+                    onPageChanged: (index) {
+                      _mainController.selectedIndex = index;
+                      setState(() {});
+                    },
+                    children: _mainController.pages,
+                  ),
+                ),
+                if (useSideBar) SizedBox(width: context.width * 0.004),
+              ],
+            )
+          ]),
+          bottomNavigationBar: useSideBar
+              ? null
+              : StreamBuilder(
+                  stream: _mainController.hideTabBar
+                      ? _mainController.bottomBarStream.stream
+                      : StreamController<bool>.broadcast().stream,
+                  initialData: true,
+                  builder: (context, AsyncSnapshot snapshot) {
+                    return AnimatedSlide(
+                      curve: Curves.easeInOutCubicEmphasized,
+                      duration: const Duration(milliseconds: 500),
+                      offset: Offset(0, snapshot.data ? 0 : 1),
+                      child: enableMYBar
+                          ? NavigationBar(
+                              backgroundColor: Theme.of(context)
+                                  .colorScheme
+                                  .onInverseSurface,
+                              onDestinationSelected: (value) => setIndex(value),
+                              selectedIndex: _mainController.selectedIndex,
+                              destinations:
+                                  _mainController.navigationBars.map((e) {
                                 return NavigationDestination(
                                   icon: Badge(
                                     label: _mainController.dynamicBadgeType ==
@@ -248,21 +265,22 @@ class _MainAppState extends State<MainApp> with SingleTickerProviderStateMixin {
                                   label: e['label'],
                                 );
                               }).toList(),
-                            ],
-                          )
-                        : BottomNavigationBar(
-                            currentIndex: _mainController.selectedIndex,
-                            onTap: (value) => setIndex(value),
-                            iconSize: 16,
-                            selectedFontSize: 12,
-                            unselectedFontSize: 12,
-                            type: BottomNavigationBarType.fixed,
-                            // selectedItemColor:
-                            //     Theme.of(context).colorScheme.primary, // 选中项的颜色
-                            // unselectedItemColor:
-                            //     Theme.of(context).colorScheme.onSurface,
-                            items: [
-                              ..._mainController.navigationBars.map((e) {
+                            )
+                          : BottomNavigationBar(
+                              backgroundColor: Theme.of(context)
+                                  .colorScheme
+                                  .onInverseSurface,
+                              currentIndex: _mainController.selectedIndex,
+                              onTap: (value) => setIndex(value),
+                              iconSize: 16,
+                              selectedFontSize: 12,
+                              unselectedFontSize: 12,
+                              type: BottomNavigationBarType.fixed,
+                              // selectedItemColor:
+                              //     Theme.of(context).colorScheme.primary, // 选中项的颜色
+                              // unselectedItemColor:
+                              //     Theme.of(context).colorScheme.onSurface,
+                              items: _mainController.navigationBars.map((e) {
                                 return BottomNavigationBarItem(
                                   icon: Badge(
                                     label: _mainController.dynamicBadgeType ==
@@ -286,11 +304,11 @@ class _MainAppState extends State<MainApp> with SingleTickerProviderStateMixin {
                                   label: e['label'],
                                 );
                               }).toList(),
-                            ],
-                          ),
-                  );
-                },
-              ),
+                            ),
+                    );
+                  },
+                ),
+        ),
       ),
     );
   }

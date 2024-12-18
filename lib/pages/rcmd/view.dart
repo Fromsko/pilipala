@@ -46,7 +46,6 @@ class _RcmdPageState extends State<RcmdPage>
             scrollController.position.maxScrollExtent - 200) {
           EasyThrottle.throttle(
               'my-throttler', const Duration(milliseconds: 200), () {
-            _rcmdController.isLoadingMore = true;
             _rcmdController.onLoad();
           });
         }
@@ -99,23 +98,17 @@ class _RcmdPageState extends State<RcmdPage>
                     Map data = snapshot.data as Map;
                     if (data['status']) {
                       return Obx(
-                        () {
-                          if (_rcmdController.isLoadingMore &&
-                              _rcmdController.videoList.isEmpty) {
-                            return contentGrid(_rcmdController, []);
-                          } else {
-                            // 显示视频列表
-                            return contentGrid(
-                                _rcmdController, _rcmdController.videoList);
-                          }
-                        },
+                        () => contentGrid(
+                            _rcmdController,
+                            _rcmdController.videoList.isEmpty
+                                ? []
+                                : _rcmdController.videoList),
                       );
                     } else {
                       return HttpError(
                         errMsg: data == null ? "" : data['msg'],
                         fn: () {
                           setState(() {
-                            _rcmdController.isLoadingMore = true;
                             _futureBuilderFuture =
                                 _rcmdController.queryRcmdFeed('init');
                           });
@@ -134,12 +127,19 @@ class _RcmdPageState extends State<RcmdPage>
     );
   }
 
+  void _removePopupDialog() {
+    _rcmdController.popupDialog.last?.remove();
+    _rcmdController.popupDialog.removeLast();
+  }
+
   OverlayEntry _createPopupDialog(videoItem) {
     return OverlayEntry(
       builder: (context) => AnimatedDialog(
-        closeFn: _rcmdController.popupDialog?.remove,
+        closeFn: _removePopupDialog,
         child: OverlayPop(
-            videoItem: videoItem, closeFn: _rcmdController.popupDialog?.remove),
+          videoItem: videoItem,
+          closeFn: _removePopupDialog,
+        ),
       ),
     );
   }
@@ -162,13 +162,12 @@ class _RcmdPageState extends State<RcmdPage>
               ? VideoCardV(
                   videoItem: videoList[index],
                   longPress: () {
-                    _rcmdController.popupDialog =
-                        _createPopupDialog(videoList[index]);
-                    Overlay.of(context).insert(_rcmdController.popupDialog!);
+                    _rcmdController.popupDialog
+                        .add(_createPopupDialog(videoList[index]));
+                    Overlay.of(context)
+                        .insert(_rcmdController.popupDialog.last!);
                   },
-                  longPressEnd: () {
-                    _rcmdController.popupDialog?.remove();
-                  },
+                  longPressEnd: _removePopupDialog,
                 )
               : const VideoCardVSkeleton();
         },

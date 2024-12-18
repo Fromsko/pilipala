@@ -4,6 +4,7 @@ import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:get/get.dart';
 import 'package:PiliPalaX/common/widgets/network_img_layer.dart';
 
+import '../../../utils/app_scheme.dart';
 import 'controller.dart';
 
 class ReplyMePage extends StatefulWidget {
@@ -63,10 +64,12 @@ class _ReplyMePageState extends State<ReplyMePage> {
                   itemBuilder: (_, int i) {
                     return ListTile(
                       onTap: () {
-                        String nativeUri = _replyMeController
-                                .msgFeedReplyMeList[i].item?.nativeUri ??
-                            "";
-                        SmartDialog.showToast("跳转至：$nativeUri（暂未实现）");
+                        String? nativeUri = _replyMeController
+                            .msgFeedReplyMeList[i].item?.nativeUri;
+                        if (nativeUri != null) {
+                          PiliScheme.routePush(Uri.parse(nativeUri));
+                        }
+                        // SmartDialog.showToast("跳转至：$nativeUri（暂未实现）");
                       },
                       leading: NetworkImgLayer(
                         width: 45,

@@ -4,10 +4,13 @@ import 'dart:math';
 
 import 'package:floating/floating.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:get/get.dart';
 import 'package:hive/hive.dart';
+import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
+import 'package:media_kit/media_kit.dart';
 import 'package:ns_danmaku/ns_danmaku.dart';
 import 'package:PiliPalaX/http/user.dart';
 import 'package:PiliPalaX/models/video/play/quality.dart';
@@ -19,7 +22,9 @@ import 'package:PiliPalaX/plugin/pl_player/models/play_repeat.dart';
 import 'package:PiliPalaX/utils/storage.dart';
 import 'package:PiliPalaX/http/danmaku.dart';
 import 'package:PiliPalaX/services/shutdown_timer_service.dart';
+import '../../../../models/video/play/CDN.dart';
 import '../../../../models/video_detail_res.dart';
+import '../../../setting/widgets/select_dialog.dart';
 import '../introduction/index.dart';
 import 'package:marquee/marquee.dart';
 
@@ -60,6 +65,7 @@ class _HeaderControlState extends State<HeaderControl> {
   late bool horizontalScreen;
   RxString now = ''.obs;
   late Timer clock;
+  late String defaultCDNService;
 
   @override
   void initState() {
@@ -73,6 +79,8 @@ class _HeaderControlState extends State<HeaderControl> {
     videoIntroController = Get.put(VideoIntroController(), tag: heroTag);
     horizontalScreen =
         setting.get(SettingBoxKey.horizontalScreen, defaultValue: false);
+    defaultCDNService = setting.get(SettingBoxKey.CDNService,
+        defaultValue: CDNService.backupUrl.code);
     startClock();
   }
 
@@ -106,7 +114,7 @@ class _HeaderControlState extends State<HeaderControl> {
       builder: (_) {
         return Container(
           width: double.infinity,
-          height: 460,
+          height: 500,
           clipBehavior: Clip.hardEdge,
           decoration: BoxDecoration(
             color: Theme.of(context).colorScheme.background,
@@ -175,7 +183,63 @@ class _HeaderControlState extends State<HeaderControl> {
                       dense: true,
                       leading:
                           const Icon(Icons.hourglass_top_outlined, size: 20),
-                      title: const Text('定时关闭（测试）', style: titleStyle),
+                      title: const Text('定时关闭', style: titleStyle),
+                    ),
+                    ListTile(
+                      onTap: () =>
+                          {Get.back(), widget.videoDetailCtr!.queryVideoUrl()},
+                      dense: true,
+                      leading: const Icon(Icons.refresh_outlined, size: 20),
+                      title: const Text('重载视频', style: titleStyle),
+                    ),
+                    ListTile(
+                      title: const Text('CDN 设置', style: titleStyle),
+                      leading: Icon(MdiIcons.cloudPlusOutline, size: 20),
+                      subtitle: Text(
+                        '当前：${CDNServiceCode.fromCode(defaultCDNService)!.description}，无法播放请切换',
+                        style: subTitleStyle,
+                      ),
+                      onTap: () async {
+                        Get.back();
+                        String? result = await showDialog(
+                          context: context,
+                          builder: (context) {
+                            return SelectDialog<String>(
+                                title: 'CDN 设置',
+                                value: defaultCDNService,
+                                values: CDNService.values.map((e) {
+                                  return {
+                                    'title': e.description,
+                                    'value': e.code
+                                  };
+                                }).toList());
+                          },
+                        );
+                        if (result != null) {
+                          defaultCDNService = result;
+                          setting.put(SettingBoxKey.CDNService, result);
+                          SmartDialog.showToast(
+                              '已设置为 ${CDNServiceCode.fromCode(result)!.description}，正在重载视频');
+                          setState(() {});
+                          widget.videoDetailCtr!.queryVideoUrl();
+                        }
+                      },
+                    ),
+                    ListTile(
+                      onTap: () {
+                        Get.back();
+                        Player? player =
+                            widget.controller?.videoPlayerController;
+                        if (player == null) {
+                          SmartDialog.showToast('播放器未初始化');
+                          return;
+                        }
+                        var pp = player.platform as NativePlayer;
+                        pp.setProperty("video", "no");
+                      },
+                      dense: true,
+                      leading: const Icon(Icons.headphones_outlined, size: 20),
+                      title: const Text('听视频（需返回首页才能终止该状态）', style: titleStyle),
                     ),
                     ListTile(
                       onTap: () => {Get.back(), showSetVideoQa()},
@@ -219,6 +283,172 @@ class _HeaderControlState extends State<HeaderControl> {
                       leading: const Icon(Icons.subtitles_outlined, size: 20),
                       title: const Text('弹幕设置', style: titleStyle),
                     ),
+                    ListTile(
+                        title: const Text('播放信息', style: titleStyle),
+                        leading: const Icon(Icons.info_outline, size: 20),
+                        onTap: () {
+                          Player? player =
+                              widget.controller?.videoPlayerController;
+                          if (player == null) {
+                            SmartDialog.showToast('播放器未初始化');
+                            return;
+                          }
+                          showDialog(
+                            context: context,
+                            builder: (context) {
+                              return AlertDialog(
+                                title: const Text('播放信息'),
+                                content: SizedBox(
+                                  width: double.maxFinite,
+                                  child: ListView(
+                                    children: [
+                                      ListTile(
+                                        title: const Text("Resolution"),
+                                        subtitle: Text(
+                                            '${player.state.width}x${player.state.height}'),
+                                        onTap: () {
+                                          Clipboard.setData(
+                                            ClipboardData(
+                                              text:
+                                                  "Resolution\n${player.state.width}x${player.state.height}",
+                                            ),
+                                          );
+                                        },
+                                      ),
+                                      ListTile(
+                                        title: const Text("VideoParams"),
+                                        subtitle: Text(player.state.videoParams
+                                            .toString()),
+                                        onTap: () {
+                                          Clipboard.setData(
+                                            ClipboardData(
+                                              text:
+                                                  "VideoParams\n${player.state.videoParams}",
+                                            ),
+                                          );
+                                        },
+                                      ),
+                                      ListTile(
+                                        title: const Text("AudioParams"),
+                                        subtitle: Text(player.state.audioParams
+                                            .toString()),
+                                        onTap: () {
+                                          Clipboard.setData(
+                                            ClipboardData(
+                                              text:
+                                                  "AudioParams\n${player.state.audioParams}",
+                                            ),
+                                          );
+                                        },
+                                      ),
+                                      ListTile(
+                                        title: const Text("Media"),
+                                        subtitle: Text(
+                                            player.state.playlist.toString()),
+                                        onTap: () {
+                                          Clipboard.setData(
+                                            ClipboardData(
+                                              text:
+                                                  "Media\n${player.state.playlist}",
+                                            ),
+                                          );
+                                        },
+                                      ),
+                                      ListTile(
+                                        title: const Text("AudioTrack"),
+                                        subtitle: Text(player.state.track.audio
+                                            .toString()),
+                                        onTap: () {
+                                          Clipboard.setData(
+                                            ClipboardData(
+                                              text:
+                                                  "AudioTrack\n${player.state.track.audio}",
+                                            ),
+                                          );
+                                        },
+                                      ),
+                                      ListTile(
+                                        title: const Text("VideoTrack"),
+                                        subtitle: Text(player.state.track.video
+                                            .toString()),
+                                        onTap: () {
+                                          Clipboard.setData(
+                                            ClipboardData(
+                                              text:
+                                                  "VideoTrack\n${player.state.track.audio}",
+                                            ),
+                                          );
+                                        },
+                                      ),
+                                      ListTile(
+                                          title: const Text("pitch"),
+                                          subtitle: Text(
+                                              player.state.pitch.toString()),
+                                          onTap: () {
+                                            Clipboard.setData(
+                                              ClipboardData(
+                                                text:
+                                                    "pitch\n${player.state.pitch}",
+                                              ),
+                                            );
+                                          }),
+                                      ListTile(
+                                          title: const Text("rate"),
+                                          subtitle: Text(
+                                              player.state.rate.toString()),
+                                          onTap: () {
+                                            Clipboard.setData(
+                                              ClipboardData(
+                                                text:
+                                                    "rate\n${player.state.rate}",
+                                              ),
+                                            );
+                                          }),
+                                      ListTile(
+                                        title: const Text("AudioBitrate"),
+                                        subtitle: Text(player.state.audioBitrate
+                                            .toString()),
+                                        onTap: () {
+                                          Clipboard.setData(
+                                            ClipboardData(
+                                              text:
+                                                  "AudioBitrate\n${player.state.audioBitrate}",
+                                            ),
+                                          );
+                                        },
+                                      ),
+                                      ListTile(
+                                        title: const Text("Volume"),
+                                        subtitle: Text(
+                                            player.state.volume.toString()),
+                                        onTap: () {
+                                          Clipboard.setData(
+                                            ClipboardData(
+                                              text:
+                                                  "Volume\n${player.state.volume}",
+                                            ),
+                                          );
+                                        },
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                actions: [
+                                  TextButton(
+                                    onPressed: () => Get.back(),
+                                    child: Text(
+                                      '确定',
+                                      style: TextStyle(
+                                          color: Theme.of(context)
+                                              .colorScheme
+                                              .outline),
+                                    ),
+                                  ),
+                                ],
+                              );
+                            },
+                          );
+                        })
                   ],
                 ),
               ))
@@ -319,6 +549,7 @@ class _HeaderControlState extends State<HeaderControl> {
       -1,
       15,
       30,
+      45,
       60,
     ];
     showModalBottomSheet(
@@ -483,7 +714,8 @@ class _HeaderControlState extends State<HeaderControl> {
                 height: 45,
                 child: GestureDetector(
                   onTap: () {
-                    SmartDialog.showToast('标灰画质可能需要bilibili会员');
+                    SmartDialog.showToast(
+                        '标灰画质需要bilibili会员（已是会员？请关闭无痕模式）；4k和杜比视界播放效果可能不佳');
                   },
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.center,
@@ -1070,12 +1302,13 @@ class _HeaderControlState extends State<HeaderControl> {
                       ),
                       child: Slider(
                         min: 1,
-                        max: 6,
-                        value: sqrt(danmakuDurationVal),
-                        divisions: 50,
+                        max: 4,
+                        value: pow(danmakuDurationVal, 1 / 4) as double,
+                        divisions: 60,
                         label: danmakuDurationVal.toString(),
                         onChanged: (double val) {
-                          danmakuDurationVal = (val * val).toPrecision(2);
+                          danmakuDurationVal =
+                              (pow(val, 4) as double).toPrecision(2);
                           widget.controller!.danmakuDurationVal =
                               danmakuDurationVal;
                           widget.controller?.putDanmakuSettings();
@@ -1109,7 +1342,7 @@ class _HeaderControlState extends State<HeaderControl> {
       builder: (BuildContext context) {
         return Container(
           width: double.infinity,
-          height: 250,
+          height: 300,
           clipBehavior: Clip.hardEdge,
           decoration: BoxDecoration(
             color: Theme.of(context).colorScheme.background,
@@ -1206,7 +1439,7 @@ class _HeaderControlState extends State<HeaderControl> {
                   },
                 )),
             if (!isFullScreen ||
-                    MediaQuery.of(context).orientation != Orientation.portrait)
+                MediaQuery.of(context).orientation != Orientation.portrait)
               SizedBox(
                   width: 42,
                   height: 34,
@@ -1420,7 +1653,16 @@ class _HeaderControlState extends State<HeaderControl> {
                         widget.videoDetailCtr!.data.dash!.video!.first.width!,
                         widget.videoDetailCtr!.data.dash!.video!.first.height!,
                       );
-                      await widget.floating!.enable(aspectRatio: aspectRatio);
+                      if (!context.mounted) return;
+                      await widget.floating!.enable(EnableManual(
+                        aspectRatio: aspectRatio,
+                        sourceRectHint: Rectangle<int>(
+                          0,
+                          0,
+                          context.width.toInt(),
+                          context.height.toInt(),
+                        ),
+                      ));
                     } else {}
                   },
                   icon: const Icon(

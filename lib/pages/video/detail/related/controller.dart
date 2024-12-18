@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:get/get.dart';
 import 'package:PiliPalaX/http/video.dart';
 import '../../../../models/model_hot_video_item.dart';
@@ -9,12 +10,14 @@ class RelatedController extends GetxController {
   // 推荐视频列表
   RxList relatedVideoList = <HotVideoItemModel>[].obs;
 
-  OverlayEntry? popupDialog;
+  List<OverlayEntry?> popupDialog = <OverlayEntry?>[];
 
   Future<dynamic> queryRelatedVideo() async {
     return VideoHttp.relatedVideoList(bvid: bvid).then((value) {
       if (value['status']) {
         relatedVideoList.value = value['data'];
+      } else {
+        SmartDialog.showToast(value['msg']);
       }
       return value;
     });

@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:hive/hive.dart';
 import '../models/bangumi/info.dart';
 import '../models/common/search_type.dart';
@@ -9,7 +10,7 @@ import '../utils/storage.dart';
 import 'index.dart';
 
 class SearchHttp {
-  static Box setting = GStorage.setting;
+  static Box localCache = GStorage.localCache;
   static Future hotSearchList() async {
     var res = await Request().get(Api.hotSearchList);
     if (res.data is String) {
@@ -89,8 +90,8 @@ class SearchHttp {
       try {
         switch (searchType) {
           case SearchType.video:
-            List<int> blackMidsList = setting
-                .get(SettingBoxKey.blackMidsList, defaultValue: [-1])
+            List<int> blackMidsList = localCache
+                .get(LocalCacheKey.blackMidsList, defaultValue: [-1])
                 .map<int>((i) => i as int)
                 .toList();
             for (var i in res.data['data']['result']) {
@@ -139,7 +140,12 @@ class SearchHttp {
     }
     final dynamic res =
         await Request().get(Api.ab2c, data: <String, dynamic>{...data});
-    return res.data['data'].first['cid'];
+    if (res.data['code'] == 0) {
+      return res.data['data'].first['cid'];
+    } else {
+      SmartDialog.showToast("ab2c error: ${res.data['message']}");
+      return -1;
+    }
   }
 
   static Future<Map<String, dynamic>> bangumiInfo(

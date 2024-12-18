@@ -7,6 +7,7 @@ import 'package:PiliPalaX/models/common/theme_type.dart';
 import 'package:PiliPalaX/models/user/info.dart';
 import 'package:PiliPalaX/models/user/stat.dart';
 import 'package:PiliPalaX/utils/storage.dart';
+import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 
 class MineController extends GetxController {
   // 用户信息 头像、昵称、lv
@@ -36,22 +37,20 @@ class MineController extends GetxController {
 
   onLogin() async {
     if (!userLogin.value) {
-      Get.toNamed(
-        '/webview',
-        parameters: {
-          'url': 'https://passport.bilibili.com/h5-app/passport/login',
-          'type': 'login',
-          'pageTitle': '登录bilibili',
-        },
-      );
-      // Get.toNamed('/loginPage');
+      // Get.toNamed(
+      //   '/webview',
+      //   parameters: {
+      //     'url': 'https://passport.bilibili.com/h5-app/passport/login',
+      //     'type': 'login',
+      //     'pageTitle': '登录bilibili',
+      //   },
+      // );
+      Get.toNamed('/loginPage', preventDuplicates: false);
     } else {
       int mid = userInfo.value.mid!;
       String face = userInfo.value.face!;
-      Get.toNamed(
-        '/member?mid=$mid',
-        arguments: {'face': face},
-      );
+      Get.toNamed('/member?mid=$mid',
+          arguments: {'face': face}, preventDuplicates: false);
     }
   }
 
@@ -69,7 +68,8 @@ class MineController extends GetxController {
         resetUserInfo();
       }
     } else {
-      resetUserInfo();
+      // resetUserInfo();
+      SmartDialog.showToast(res['msg']);
     }
     await queryUserStatOwner();
     return res;
@@ -101,30 +101,29 @@ class MineController extends GetxController {
           alignment: Alignment.bottomCenter,
           builder: (context) {
             return ColoredBox(
-              color: Theme.of(context).colorScheme.secondaryContainer,
+              color: Theme.of(context).colorScheme.primaryContainer,
               child: Padding(
                   padding:
                       const EdgeInsets.symmetric(vertical: 15, horizontal: 20),
                   child:
                       Column(mainAxisSize: MainAxisSize.min, children: <Widget>[
-                    const Row(
+                    Row(
                       children: <Widget>[
                         Icon(
-                          Icons.check,
-                          color: Colors.green,
+                          MdiIcons.incognito,
                         ),
-                        SizedBox(width: 10),
+                        const SizedBox(width: 10),
                         Text('已进入无痕模式',
-                            style: TextStyle(fontSize: 15, height: 1.5))
+                            style: Theme.of(context).textTheme.titleMedium)
                       ],
                     ),
                     const SizedBox(height: 10),
-                    const Text(
-                        '搜索、观看视频/直播不携带Cookie与CSRF\n'
+                    Text(
+                        '搜索、观看视频/直播不携带身份信息（包含大会员）\n'
                         '不产生查询或播放记录\n'
                         '点赞等其它操作不受影响\n'
                         '（前往隐私设置了解详情）',
-                        style: TextStyle(fontSize: 12.5, height: 1.5)),
+                        style: Theme.of(context).textTheme.bodySmall),
                     Row(
                         mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                         children: [
@@ -173,17 +172,17 @@ class MineController extends GetxController {
           builder: (context) {
             return ColoredBox(
                 color: Theme.of(context).colorScheme.secondaryContainer,
-                child: const Padding(
+                child: Padding(
                     padding: EdgeInsets.symmetric(vertical: 15, horizontal: 20),
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.start,
                       children: [
                         Icon(
-                          Icons.check,
-                          color: Colors.green,
+                          MdiIcons.incognitoOff,
                         ),
-                        SizedBox(width: 10),
-                        Text('已退出无痕模式'),
+                        const SizedBox(width: 10),
+                        Text('已退出无痕模式',
+                            style: Theme.of(context).textTheme.titleMedium),
                       ],
                     )));
           });
@@ -191,29 +190,44 @@ class MineController extends GetxController {
   }
 
   onChangeTheme() {
-    Brightness currentBrightness =
-        MediaQuery.of(Get.context!).platformBrightness;
     ThemeType currentTheme = themeType.value;
+    //system -> dark -> light -> system
     switch (currentTheme) {
+      case ThemeType.system:
+        setting.put(SettingBoxKey.themeMode, ThemeType.dark.code);
+        themeType.value = ThemeType.dark;
+        break;
       case ThemeType.dark:
         setting.put(SettingBoxKey.themeMode, ThemeType.light.code);
         themeType.value = ThemeType.light;
         break;
       case ThemeType.light:
-        setting.put(SettingBoxKey.themeMode, ThemeType.dark.code);
-        themeType.value = ThemeType.dark;
-        break;
-      case ThemeType.system:
-        // 判断当前的颜色模式
-        if (currentBrightness == Brightness.light) {
-          setting.put(SettingBoxKey.themeMode, ThemeType.dark.code);
-          themeType.value = ThemeType.dark;
-        } else {
-          setting.put(SettingBoxKey.themeMode, ThemeType.light.code);
-          themeType.value = ThemeType.light;
-        }
+        setting.put(SettingBoxKey.themeMode, ThemeType.system.code);
+        themeType.value = ThemeType.system;
         break;
     }
+    // Brightness currentBrightness =
+    //     MediaQuery.of(Get.context!).platformBrightness;
+    // switch (currentTheme) {
+    //   case ThemeType.dark:
+    //     setting.put(SettingBoxKey.themeMode, ThemeType.light.code);
+    //     themeType.value = ThemeType.light;
+    //     break;
+    //   case ThemeType.light:
+    //     setting.put(SettingBoxKey.themeMode, ThemeType.dark.code);
+    //     themeType.value = ThemeType.dark;
+    //     break;
+    //   case ThemeType.system:
+    //     // 判断当前的颜色模式
+    //     if (currentBrightness == Brightness.light) {
+    //       setting.put(SettingBoxKey.themeMode, ThemeType.dark.code);
+    //       themeType.value = ThemeType.dark;
+    //     } else {
+    //       setting.put(SettingBoxKey.themeMode, ThemeType.light.code);
+    //       themeType.value = ThemeType.light;
+    //     }
+    //     break;
+    // }
     Get.forceAppUpdate();
   }
 

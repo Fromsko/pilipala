@@ -117,7 +117,9 @@ class _VideoDetailPageState extends State<VideoDetailPage>
     onUserLeaveHintListener = const MethodChannel("onUserLeaveHint");
     onUserLeaveHintListener.setMethodCallHandler((call) async {
       if (call.method == 'onUserLeaveHint') {
-        if (autoPiP) {
+        if (autoPiP &&
+            plPlayerController != null &&
+            playerStatus == PlayerStatus.playing) {
           autoEnterPip();
         }
       }
@@ -269,6 +271,7 @@ class _VideoDetailPageState extends State<VideoDetailPage>
       plPlayerController!.dispose();
     }
     videoPlayerServiceHandler.onVideoDetailDispose();
+    VideoDetailPage.routeObserver.unsubscribe(this);
     // _lifecycleListener.dispose();
     showStatusBar();
     // _animationController.dispose();
@@ -364,10 +367,17 @@ class _VideoDetailPageState extends State<VideoDetailPage>
     final String routePath = Get.currentRoute;
 
     if (autoPiP && routePath.startsWith('/video')) {
-      floating.enable(
-          aspectRatio: Rational(
-        videoDetailController.data.dash!.video!.first.width!,
-        videoDetailController.data.dash!.video!.first.height!,
+      floating.enable(EnableManual(
+        aspectRatio: Rational(
+          videoDetailController.data.dash!.video!.first.width!,
+          videoDetailController.data.dash!.video!.first.height!,
+        ),
+        sourceRectHint: Rectangle<int>(
+          0,
+          0,
+          context.width.toInt(),
+          context.height.toInt(),
+        ),
       ));
     }
   }
@@ -443,7 +453,7 @@ class _VideoDetailPageState extends State<VideoDetailPage>
                 bottom: 10,
                 child: IconButton(
                     tooltip: '播放',
-                    onPressed: () => handlePlay(),
+                    onPressed: handlePlay,
                     icon: Image.asset(
                       'assets/images/play.png',
                       width: 60,
@@ -528,7 +538,7 @@ class _VideoDetailPageState extends State<VideoDetailPage>
                                 (horizontalScreen ||
                                     MediaQuery.of(context).orientation ==
                                         Orientation.portrait),
-                            onPopInvoked: (bool didPop) {
+                            onPopInvokedWithResult: (bool didPop, Object? result) {
                               if (isFullScreen.value == true) {
                                 plPlayerController!
                                     .triggerFullScreen(status: false);
@@ -555,9 +565,7 @@ class _VideoDetailPageState extends State<VideoDetailPage>
                                         left: 0,
                                         right: 0,
                                         child: GestureDetector(
-                                          onTap: () {
-                                            handlePlay();
-                                          },
+                                          onTap: handlePlay,
                                           child: NetworkImgLayer(
                                             type: 'emote',
                                             src: videoDetailController
@@ -582,24 +590,24 @@ class _VideoDetailPageState extends State<VideoDetailPage>
                       color: Theme.of(context).colorScheme.background,
                       child: Column(
                         children: [
-                          Opacity(
-                            opacity: 0,
-                            child: SizedBox(
-                              width: context.width,
-                              height: 0,
-                              child: Obx(
-                                () => TabBar(
-                                  controller: videoDetailController.tabCtr,
-                                  dividerColor: Colors.transparent,
-                                  indicatorColor:
-                                      Theme.of(context).colorScheme.background,
-                                  tabs: videoDetailController.tabs
-                                      .map((String name) => Tab(text: name))
-                                      .toList(),
-                                ),
-                              ),
-                            ),
-                          ),
+                          // Opacity(
+                          //   opacity: 0,
+                          //   child: SizedBox(
+                          //     width: context.width,
+                          //     height: 0,
+                          //     child: Obx(
+                          //       () => TabBar(
+                          //         controller: videoDetailController.tabCtr,
+                          //         dividerColor: Colors.transparent,
+                          //         indicatorColor:
+                          //             Theme.of(context).colorScheme.background,
+                          //         tabs: videoDetailController.tabs
+                          //             .map((String name) => Tab(text: name))
+                          //             .toList(),
+                          //       ),
+                          //     ),
+                          //   ),
+                          // ),
                           Expanded(
                             child: TabBarView(
                               physics: const BouncingScrollPhysics(),
@@ -665,7 +673,7 @@ class _VideoDetailPageState extends State<VideoDetailPage>
             width: isFullScreen.value == true ? context.width : videoWidth,
             child: PopScope(
               canPop: isFullScreen.value != true,
-              onPopInvoked: (bool didPop) {
+              onPopInvokedWithResult: (bool didPop, Object? result) {
                 if (isFullScreen.value == true) {
                   plPlayerController!.triggerFullScreen(status: false);
                 }
@@ -688,9 +696,7 @@ class _VideoDetailPageState extends State<VideoDetailPage>
                         left: 0,
                         right: 0,
                         child: GestureDetector(
-                          onTap: () {
-                            handlePlay();
-                          },
+                          onTap: handlePlay,
                           child: NetworkImgLayer(
                             type: 'emote',
                             src: videoDetailController.videoItem['pic'],
@@ -760,7 +766,7 @@ class _VideoDetailPageState extends State<VideoDetailPage>
                 : videoHeight,
             child: PopScope(
               canPop: isFullScreen.value != true,
-              onPopInvoked: (bool didPop) {
+              onPopInvokedWithResult: (bool didPop, Object? result) {
                 if (isFullScreen.value == true) {
                   plPlayerController!.triggerFullScreen(status: false);
                 }
@@ -783,9 +789,7 @@ class _VideoDetailPageState extends State<VideoDetailPage>
                         left: 0,
                         right: 0,
                         child: GestureDetector(
-                          onTap: () {
-                            handlePlay();
-                          },
+                          onTap: handlePlay,
                           child: NetworkImgLayer(
                             type: 'emote',
                             src: videoDetailController.videoItem['pic'],
@@ -838,12 +842,26 @@ class _VideoDetailPageState extends State<VideoDetailPage>
         final double videoWidth = videoHeight * 9 / 16;
         return Row(
           children: [
+            Expanded(
+                child: CustomScrollView(
+              key: PageStorageKey<String>('简介${videoDetailController.bvid}'),
+              slivers: <Widget>[
+                if (videoDetailController.videoType == SearchType.video) ...[
+                  VideoIntroPanel(heroTag: heroTag),
+                  RelatedVideoPanel(heroTag: heroTag),
+                ] else if (videoDetailController.videoType ==
+                    SearchType.media_bangumi) ...[
+                  Obx(() => BangumiIntroPanel(
+                      heroTag: heroTag, cid: videoDetailController.cid.value)),
+                ]
+              ],
+            )),
             SizedBox(
               height: videoHeight,
               width: isFullScreen.value == true ? context.width : videoWidth,
               child: PopScope(
                 canPop: isFullScreen.value != true,
-                onPopInvoked: (bool didPop) {
+                onPopInvokedWithResult: (bool didPop, Object? result) {
                   if (isFullScreen.value == true) {
                     plPlayerController!.triggerFullScreen(status: false);
                   }
@@ -867,9 +885,7 @@ class _VideoDetailPageState extends State<VideoDetailPage>
                             left: 0,
                             right: 0,
                             child: GestureDetector(
-                              onTap: () {
-                                handlePlay();
-                              },
+                              onTap: handlePlay,
                               child: NetworkImgLayer(
                                 type: 'emote',
                                 src: videoDetailController.videoItem['pic'],
@@ -887,32 +903,14 @@ class _VideoDetailPageState extends State<VideoDetailPage>
               ),
             ),
             Expanded(
-                child: Row(children: [
-              Expanded(
-                  child: CustomScrollView(
-                key: PageStorageKey<String>('简介${videoDetailController.bvid}'),
-                slivers: <Widget>[
-                  if (videoDetailController.videoType == SearchType.video) ...[
-                    VideoIntroPanel(heroTag: heroTag),
-                    RelatedVideoPanel(heroTag: heroTag),
-                  ] else if (videoDetailController.videoType ==
-                      SearchType.media_bangumi) ...[
-                    Obx(() => BangumiIntroPanel(
-                        heroTag: heroTag,
-                        cid: videoDetailController.cid.value)),
-                  ]
-                ],
-              )),
-              Expanded(
-                child: Obx(
-                  () => VideoReplyPanel(
-                    bvid: videoDetailController.bvid,
-                    oid: videoDetailController.oid.value,
-                    heroTag: heroTag,
-                  ),
+              child: Obx(
+                () => VideoReplyPanel(
+                  bvid: videoDetailController.bvid,
+                  oid: videoDetailController.oid.value,
+                  heroTag: heroTag,
                 ),
-              )
-            ]))
+              ),
+            ),
             // Expanded(
             //   child: TabBarView(
             //     physics: const BouncingScrollPhysics(),
@@ -965,7 +963,7 @@ class _VideoDetailPageState extends State<VideoDetailPage>
                       isFullScreen.value == true ? context.height : videoHeight,
                   child: PopScope(
                       canPop: isFullScreen.value != true,
-                      onPopInvoked: (bool didPop) {
+                      onPopInvokedWithResult: (bool didPop, Object? result) {
                         if (isFullScreen.value == true) {
                           plPlayerController!.triggerFullScreen(status: false);
                         }
@@ -991,9 +989,7 @@ class _VideoDetailPageState extends State<VideoDetailPage>
                                   left: 0,
                                   right: 0,
                                   child: GestureDetector(
-                                    onTap: () {
-                                      handlePlay();
-                                    },
+                                    onTap: handlePlay,
                                     child: NetworkImgLayer(
                                       type: 'emote',
                                       src: videoDetailController
@@ -1009,16 +1005,13 @@ class _VideoDetailPageState extends State<VideoDetailPage>
                           ]
                         ],
                       ))),
-              SizedBox(
-                  width:
-                      isFullScreen.value == true ? context.width : videoWidth,
-                  height: isFullScreen.value == true
-                      ? 0
-                      : context.height -
-                          videoHeight -
-                          (removeSafeArea
-                              ? 0
-                              : MediaQuery.of(context).padding.top),
+              Offstage(
+                offstage: isFullScreen.value == true,
+                child: SizedBox(
+                  width: videoWidth,
+                  height: context.height -
+                      videoHeight -
+                      (removeSafeArea ? 0 : MediaQuery.of(context).padding.top),
                   child: CustomScrollView(
                     key: PageStorageKey<String>(
                         '简介${videoDetailController.bvid}'),
@@ -1026,7 +1019,7 @@ class _VideoDetailPageState extends State<VideoDetailPage>
                       if (videoDetailController.videoType ==
                           SearchType.video) ...[
                         VideoIntroPanel(heroTag: heroTag),
-                        RelatedVideoPanel(heroTag: heroTag),
+                        // RelatedVideoPanel(heroTag: heroTag),
                       ] else if (videoDetailController.videoType ==
                           SearchType.media_bangumi) ...[
                         Obx(() => BangumiIntroPanel(
@@ -1034,41 +1027,43 @@ class _VideoDetailPageState extends State<VideoDetailPage>
                             cid: videoDetailController.cid.value)),
                       ]
                     ],
-                  ))
+                  ),
+                ),
+              ),
             ],
           ),
-          SizedBox(
-              width: isFullScreen.value == true
-                  ? 0
-                  : (context.width -
-                      videoWidth -
-                      (removeSafeArea
-                          ? 0
-                          : (MediaQuery.of(context).padding.left +
-                              MediaQuery.of(context).padding.right))),
+          Offstage(
+            offstage: isFullScreen.value == true,
+            child: SizedBox(
+              width: (context.width -
+                  videoWidth -
+                  (removeSafeArea
+                      ? 0
+                      : (MediaQuery.of(context).padding.left +
+                          MediaQuery.of(context).padding.right))),
               height: context.height -
                   (removeSafeArea ? 0 : MediaQuery.of(context).padding.top),
-              child:
-                  // TabBarView(
-                  //   physics: const BouncingScrollPhysics(),
-                  //   controller: videoDetailController.tabCtr,
-                  //   children: <Widget>[
-                  //     if (videoDetailController.videoType == SearchType.video)
-                  //       const CustomScrollView(
-                  //         slivers: [
-                  //           RelatedVideoPanel(),
-                  //         ],
-                  //       ),
+              child: TabBarView(
+                physics: const BouncingScrollPhysics(),
+                controller: videoDetailController.tabCtr,
+                children: <Widget>[
+                  if (videoDetailController.videoType == SearchType.video)
+                    CustomScrollView(
+                      slivers: [
+                        RelatedVideoPanel(heroTag: heroTag),
+                      ],
+                    ),
                   Obx(
-                () => VideoReplyPanel(
-                  bvid: videoDetailController.bvid,
-                  oid: videoDetailController.oid.value,
-                  heroTag: heroTag,
-                ),
-              )
-              //   ],
-              // ),
-              )
+                    () => VideoReplyPanel(
+                      bvid: videoDetailController.bvid,
+                      oid: videoDetailController.oid.value,
+                      heroTag: heroTag,
+                    ),
+                  )
+                ],
+              ),
+            ),
+          )
         ],
       );
     });

@@ -1,3 +1,5 @@
+import 'dart:ffi';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_html/flutter_html.dart';
 import 'package:get/get.dart';
@@ -10,18 +12,21 @@ class HtmlRender extends StatelessWidget {
     this.htmlContent,
     this.imgCount,
     this.imgList,
+    required this.constrainedWidth,
     super.key,
   });
 
   final String? htmlContent;
   final int? imgCount;
   final List<String>? imgList;
+  final double constrainedWidth;
 
   @override
   Widget build(BuildContext context) {
     double textScale =
         setting.get(SettingBoxKey.defaultTextScale, defaultValue: 1.0);
-    return Html(
+    return SelectionArea(
+        child: Html(
       data: htmlContent,
       onLinkTap: (String? url, Map<String, String> buildContext, attributes) {},
       extensions: [
@@ -57,7 +62,7 @@ class HtmlRender extends StatelessWidget {
               //   height: isEmote ? 22 : null,
               // );
               return NetworkImgLayer(
-                width: isEmote ? 22 : (Get.size.width - 23) / textScale,
+                width: isEmote ? 22 : (constrainedWidth - 23) / textScale,
                 height: isEmote ? 22 : 200,
                 src: imgUrl,
                 ignoreHeight: !isEmote,
@@ -120,6 +125,6 @@ class HtmlRender extends StatelessWidget {
           margin: Margins.zero,
         ),
       },
-    );
+    ));
   }
 }

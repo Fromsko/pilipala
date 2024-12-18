@@ -1,5 +1,4 @@
 import 'package:PiliPalaX/http/video.dart';
-import 'package:appscheme/appscheme.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -121,7 +120,7 @@ class ReplyItem extends StatelessWidget {
               decoration: BoxDecoration(
                 // borderRadius: BorderRadius.circular(8),
                 shape: BoxShape.circle,
-                color: Theme.of(context).colorScheme.background,
+                color: Theme.of(context).colorScheme.surface,
               ),
               child: const Icon(
                 Icons.offline_bolt,
@@ -140,7 +139,7 @@ class ReplyItem extends StatelessWidget {
               decoration: BoxDecoration(
                 // borderRadius: BorderRadius.circular(8),
                 shape: BoxShape.circle,
-                color: Theme.of(context).colorScheme.background,
+                color: Theme.of(context).colorScheme.surface,
               ),
               child: const Icon(
                 Icons.offline_bolt,
@@ -250,9 +249,9 @@ class ReplyItem extends StatelessWidget {
                 overflow: TextOverflow.ellipsis,
                 TextSpan(
                   children: [
-                    if (replyItem!.isTop!)
+                    if (replyItem!.isTop!) ...[
                       const WidgetSpan(
-                        alignment: PlaceholderAlignment.top,
+                        alignment: PlaceholderAlignment.middle,
                         child: PBadge(
                           text: 'TOP',
                           size: 'small',
@@ -262,6 +261,8 @@ class ReplyItem extends StatelessWidget {
                           semanticsLabel: '置顶',
                         ),
                       ),
+                      const TextSpan(text: ' '),
+                    ],
                     buildContent(context, replyItem!, replyReply, null),
                   ],
                 ),
@@ -271,7 +272,8 @@ class ReplyItem extends StatelessWidget {
         buttonAction(context, replyItem!.replyControl),
         // 一楼的评论
         if ((replyItem!.replyControl!.isShow! ||
-                replyItem!.replies!.isNotEmpty) &&
+                replyItem!.replies!.isNotEmpty ||
+                replyItem!.replyControl!.entryText != null) &&
             showReplyRow!) ...[
           Padding(
             padding: const EdgeInsets.only(top: 5, bottom: 12),
@@ -382,12 +384,14 @@ class ReplyItemRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final bool isShow = replyControl!.isShow!;
-    final int extraRow = replyControl != null && isShow ? 1 : 0;
+    final int extraRow = replyControl?.isShow == true ||
+            (replyControl?.entryText != null && replies!.isEmpty)
+        ? 1
+        : 0;
     return Container(
       margin: const EdgeInsets.only(left: 42, right: 4, top: 0),
       child: Material(
-        color: Theme.of(context).colorScheme.inverseSurface.withOpacity(0.02),
+        color: Theme.of(context).colorScheme.onInverseSurface,
         borderRadius: BorderRadius.circular(6),
         clipBehavior: Clip.hardEdge,
         animationDuration: Duration.zero,
@@ -438,7 +442,7 @@ class ReplyItemRow extends StatelessWidget {
                           TextSpan(
                             children: [
                               TextSpan(
-                                text: '${replies![i].member!.uname} ',
+                                text: '${replies![i].member!.uname}',
                                 style: TextStyle(
                                   color: Theme.of(context)
                                       .colorScheme
@@ -458,9 +462,10 @@ class ReplyItemRow extends StatelessWidget {
                                         });
                                   },
                               ),
-                              if (replies![i].isUp!)
+                              if (replies![i].isUp!) ...[
+                                const TextSpan(text: ' '),
                                 const WidgetSpan(
-                                  alignment: PlaceholderAlignment.top,
+                                  alignment: PlaceholderAlignment.middle,
                                   child: PBadge(
                                     text: 'UP',
                                     size: 'small',
@@ -468,8 +473,20 @@ class ReplyItemRow extends StatelessWidget {
                                     fs: 9,
                                   ),
                                 ),
+                                const TextSpan(text: ' '),
+                              ],
+                              TextSpan(
+                                  text: replies![i].root == replies![i].parent
+                                      ? ': '
+                                      : replies![i].isUp!
+                                          ? ''
+                                          : ' '),
                               buildContent(
-                                  context, replies![i], replyReply, replyItem),
+                                context,
+                                replies![i],
+                                replyReply,
+                                replyItem,
+                              ),
                             ],
                           ),
                         )),
@@ -532,7 +549,7 @@ InlineSpan buildContent(
 
   // 投票
   if (content.vote.isNotEmpty) {
-    content.message.splitMapJoin(RegExp(r"\{vote:.*?\}"),
+    content.message.splitMapJoin(RegExp(r"\{vote:\d+?\}"),
         onMatch: (Match match) {
       // String matchStr = match[0]!;
       spanChildren.add(
@@ -556,8 +573,8 @@ InlineSpan buildContent(
     }, onNonMatch: (String str) {
       return str;
     });
+    content.message = content.message.replaceAll(RegExp(r"\{vote:\d+?\}"), "");
   }
-  // content.message = content.message.replaceAll(RegExp(r"\{vote:.*?\}"), ' ');
   content.message = content.message
       .replaceAll('&amp;', '&')
       .replaceAll('&lt;', '<')
@@ -571,18 +588,18 @@ InlineSpan buildContent(
     ...content.topicsMeta?.keys?.map((e) => '#$e#') ?? [],
     ...content.atNameToMid.keys.map((e) => '@$e'),
   ];
-  List<dynamic> jumpUrlKeysList = content.jumpUrl.keys.map((e) {
+  List<String> jumpUrlKeysList = content.jumpUrl.keys.map<String>((String e) {
     return e.replaceAllMapped(
         RegExp(r'[?+*]'), (match) => '\\${match.group(0)}');
   }).toList();
-
+  specialTokens.sort((a, b) => b.length.compareTo(a.length));
   String patternStr = specialTokens.map(RegExp.escape).join('|');
   if (patternStr.isNotEmpty) {
     patternStr += "|";
   }
   patternStr += r'(\b(?:\d+[:：])?[0-5]?[0-9][:：][0-5]?[0-9]\b)';
   if (jumpUrlKeysList.isNotEmpty) {
-    patternStr += '|${jumpUrlKeysList.join('|')}';
+    patternStr += '|${jumpUrlKeysList.map(RegExp.escape).join('|')}';
   }
   final RegExp pattern = RegExp(patternStr);
   List<String> matchedStrs = [];
@@ -703,6 +720,14 @@ InlineSpan buildContent(
                           title,
                           '',
                         );
+                      } else if (RegExp(r'^[Cc][Vv][0-9]+$')
+                          .hasMatch(matchStr)) {
+                        Get.toNamed('/htmlRender', parameters: {
+                          'url': 'https://www.bilibili.com/read/$matchStr',
+                          'title': title,
+                          'id': matchStr.substring(2),
+                          'dynamicType': 'read'
+                        });
                       } else {
                         final String redirectUrl =
                             await UrlUtils.parseRedirectUrl(matchStr);
@@ -712,16 +737,7 @@ InlineSpan buildContent(
                         //   return;
                         // }
                         Uri uri = Uri.parse(redirectUrl);
-                        SchemeEntity scheme = SchemeEntity(
-                          scheme: uri.scheme,
-                          host: uri.host,
-                          port: uri.port,
-                          path: uri.path,
-                          query: uri.queryParameters,
-                          source: '',
-                          dataString: redirectUrl,
-                        );
-                        PiliScheme.routePush(scheme);
+                        PiliScheme.routePush(uri);
                         // final String pathSegment = Uri.parse(redirectUrl).path;
                         // final String lastPathSegment =
                         //     pathSegment.split('/').last;
@@ -785,9 +801,9 @@ InlineSpan buildContent(
           );
           // 只显示一次
           matchedStrs.add(matchStr);
-        } else if (content
-                .topicsMeta[matchStr.substring(1, matchStr.length - 1)] !=
-            null) {
+        } else if (matchStr.length > 1 &&
+            content.topicsMeta[matchStr.substring(1, matchStr.length - 1)] !=
+                null) {
           spanChildren.add(
             TextSpan(
               text: matchStr,
@@ -1096,6 +1112,10 @@ class MorePanel extends StatelessWidget {
         children: [
           InkWell(
             onTap: () => Get.back(),
+            borderRadius: const BorderRadius.only(
+              topLeft: Radius.circular(28),
+              topRight: Radius.circular(28),
+            ),
             child: Container(
               height: 35,
               padding: const EdgeInsets.only(bottom: 2),

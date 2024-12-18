@@ -86,7 +86,7 @@ class VideoDetailController extends GetxController
   Floating? floating;
   late PreferredSizeWidget headerControl;
 
-  late bool enableCDN;
+  // late bool enableCDN;
   late int? cacheVideoQa;
   late String cacheDecode;
   late String cacheSecondDecode;
@@ -138,7 +138,8 @@ class VideoDetailController extends GetxController
       heroTag: heroTag,
     );
     // CDN优化
-    enableCDN = setting.get(SettingBoxKey.enableCDN, defaultValue: true);
+    // enableCDN = setting.get(SettingBoxKey.enableCDN, defaultValue: true);
+
     // 预设的画质
     cacheVideoQa = setting.get(SettingBoxKey.defaultVideoQa,
         defaultValue: VideoQuality.values.last.code);
@@ -155,6 +156,9 @@ class VideoDetailController extends GetxController
   showReplyReplyPanel() {
     replyReplyBottomSheetCtr =
         scaffoldKey.currentState?.showBottomSheet((BuildContext context) {
+      // SmartDialog.show(
+      //     alignment: Alignment.bottomRight,
+      //     builder: (context) {
       return VideoReplyReplyPanel(
         oid: oid.value,
         rpid: fRpid,
@@ -206,7 +210,9 @@ class VideoDetailController extends GetxController
       }
       if (flag == 1) {
         //currentDecodeFormats
-        firstVideo = videoList.first;
+        firstVideo = videoList.firstWhere(
+            (i) => i.codecs!.startsWith(currentDecodeFormats.code),
+            orElse: () => videoList.first);
       } else {
         if (currentVideoQa == VideoQuality.dolbyVision) {
           currentDecodeFormats =
@@ -217,12 +223,14 @@ class VideoDetailController extends GetxController
           currentDecodeFormats = defaultDecodeFormats;
           firstVideo = videoList.firstWhere(
             (i) => i.codecs!.startsWith(defaultDecodeFormats.code),
+            orElse: () => videoList.first,
           );
         } else if (flag == 4) {
           //secondDecodeFormats
           currentDecodeFormats = secondDecodeFormats;
           firstVideo = videoList.firstWhere(
             (i) => i.codecs!.startsWith(secondDecodeFormats.code),
+            orElse: () => videoList.first,
           );
         } else if (flag == 0) {
           currentDecodeFormats =
@@ -258,7 +266,8 @@ class VideoDetailController extends GetxController
     /// 设置/恢复 屏幕亮度
     if (brightness != null) {
       ScreenBrightness().setScreenBrightness(brightness!);
-    } else {
+    } else if (setting.get(SettingBoxKey.enableAutoBrightness,
+        defaultValue: false) as bool) {
       ScreenBrightness().resetScreenBrightness();
     }
     await plPlayerController.setDataSource(
@@ -312,11 +321,10 @@ class VideoDetailController extends GetxController
         defaultST = Duration.zero;
         // 实际为FLV/MP4格式，但已被淘汰，这里仅做兜底处理
         firstVideo = VideoItem(
-          id: data.quality!,
-          baseUrl: videoUrl,
-          codecs: 'avc1',
-          quality: VideoQualityCode.fromCode(data.quality!)!
-        );
+            id: data.quality!,
+            baseUrl: videoUrl,
+            codecs: 'avc1',
+            quality: VideoQualityCode.fromCode(data.quality!)!);
         currentDecodeFormats = VideoDecodeFormatsCode.fromString('avc1')!;
         currentVideoQa = VideoQualityCode.fromCode(data.quality!)!;
         if (autoPlay.value) {
@@ -382,15 +390,16 @@ class VideoDetailController extends GetxController
           (e) => e.codecs!.startsWith(currentDecodeFormats.code),
           orElse: () => videosList.first);
 
-      videoUrl = enableCDN
-          ? VideoUtils.getCdnUrl(firstVideo)
-          : (firstVideo.backupUrl ?? firstVideo.baseUrl!);
+      // videoUrl = enableCDN
+      //     ? VideoUtils.getCdnUrl(firstVideo)
+      //     : (firstVideo.backupUrl ?? firstVideo.baseUrl!);
+      videoUrl = VideoUtils.getCdnUrl(firstVideo);
 
       /// 优先顺序 设置中指定质量 -> 当前可选的最高质量
       late AudioItem? firstAudio;
-      final List<AudioItem> audiosList = data.dash!.audio!;
-
-      if (data.dash!.dolby?.audio != null && data.dash!.dolby!.audio!.isNotEmpty) {
+      final List<AudioItem> audiosList = data.dash!.audio ?? <AudioItem>[];
+      if (data.dash!.dolby?.audio != null &&
+          data.dash!.dolby!.audio!.isNotEmpty) {
         // 杜比
         audiosList.insert(0, data.dash!.dolby!.audio!.first);
       }
@@ -409,17 +418,18 @@ class VideoDetailController extends GetxController
         }
         firstAudio = audiosList.firstWhere((e) => e.id == closestNumber,
             orElse: () => audiosList.first);
+        // audioUrl = enableCDN
+        //     ? VideoUtils.getCdnUrl(firstAudio)
+        //     : (firstAudio.backupUrl ?? firstAudio.baseUrl!);
+        audioUrl = VideoUtils.getCdnUrl(firstAudio);
+        if (firstAudio.id != null) {
+          currentAudioQa = AudioQualityCode.fromCode(firstAudio.id!)!;
+        }
       } else {
         firstAudio = AudioItem();
+        audioUrl = '';
       }
-
-      audioUrl = enableCDN
-          ? VideoUtils.getCdnUrl(firstAudio)
-          : (firstAudio.backupUrl ?? firstAudio.baseUrl!);
       //
-      if (firstAudio.id != null) {
-        currentAudioQa = AudioQualityCode.fromCode(firstAudio.id!)!;
-      }
       defaultST = Duration(milliseconds: data.lastPlayTime!);
       if (autoPlay.value) {
         isShowCover.value = false;

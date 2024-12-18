@@ -28,6 +28,7 @@ class _RecommendSettingState extends State<RecommendSetting> {
   // late int filterUnfollowedRatio;
   late int minDurationForRcmd;
   late int minLikeRatioForRecommend;
+  late String banWordForRecommend;
 
   @override
   void initState() {
@@ -44,6 +45,8 @@ class _RecommendSettingState extends State<RecommendSetting> {
         setting.get(SettingBoxKey.minDurationForRcmd, defaultValue: 0);
     minLikeRatioForRecommend =
         setting.get(SettingBoxKey.minLikeRatioForRecommend, defaultValue: 0);
+    banWordForRecommend =
+        setting.get(SettingBoxKey.banWordForRecommend, defaultValue: '');
   }
 
   @override
@@ -87,45 +90,8 @@ class _RecommendSettingState extends State<RecommendSetting> {
               );
               if (result != null) {
                 if (result == 'app') {
-                  // app端推荐需要access_key
                   if (accessKeyInfo == null) {
-                    if (!userLogin) {
-                      SmartDialog.showToast('请先登录');
-                      return;
-                    }
-                    // 显示一个确认框，告知用户可能会导致账号被风控
-                    if (!context.mounted) return;
-                    await showDialog(
-                        context: context,
-                        builder: (context) {
-                          return AlertDialog(
-                            title: const Text('提示'),
-                            content: const Text(
-                                '使用app端推荐需获取access_key，有小概率触发风控导致账号退出（在官方版本app重新登录即可解除），是否继续？'),
-                            actions: [
-                              TextButton(
-                                onPressed: () {
-                                  result = null;
-                                  Get.back();
-                                },
-                                child: const Text('取消'),
-                              ),
-                              TextButton(
-                                onPressed: () async {
-                                  Get.back();
-                                  var res = await MemberHttp.cookieToKey();
-                                  if (res['status']) {
-                                    SmartDialog.showToast(res['msg']);
-                                  } else {
-                                    SmartDialog.showToast(
-                                        '获取access_key失败：${res['msg']}');
-                                  }
-                                },
-                                child: const Text('确定'),
-                              ),
-                            ],
-                          );
-                        });
+                    SmartDialog.showToast('尚未登录，无法收到个性化推荐');
                   }
                 }
                 if (result != null) {
@@ -179,6 +145,66 @@ class _RecommendSettingState extends State<RecommendSetting> {
                 RecommendFilter.update();
                 setState(() {});
               }
+            },
+          ),
+          ListTile(
+            dense: false,
+            leading: const Icon(Icons.title_outlined),
+            title: Text('标题关键词过滤', style: titleStyle),
+            subtitle: Text(
+              banWordForRecommend.isEmpty ? "点击添加" : banWordForRecommend,
+              style: subTitleStyle,
+            ),
+            onTap: () async {
+              final TextEditingController textController =
+                  TextEditingController(text: banWordForRecommend);
+              await showDialog(
+                context: context,
+                builder: (context) {
+                  return AlertDialog(
+                    title: const Text('标题关键词过滤'),
+                    content: Column(mainAxisSize: MainAxisSize.min, children: [
+                      const Text('使用空格隔开，如：尝试 测试'),
+                      TextField(
+                        controller: textController,
+                        //decoration: InputDecoration(hintText: hintText),
+                      )
+                    ]),
+                    actions: <Widget>[
+                      TextButton(
+                        child: const Text('清空'),
+                        onPressed: () {
+                          textController.text = '';
+                        },
+                      ),
+                      TextButton(
+                        child: const Text('取消'),
+                        onPressed: () {
+                          Navigator.of(context).pop();
+                          SmartDialog.showToast('关键词未被修改');
+                        },
+                      ),
+                      TextButton(
+                        child: const Text('保存'),
+                        onPressed: () async {
+                          Navigator.of(context).pop();
+                          String filter = textController.text.trim();
+                          banWordForRecommend = filter;
+                          setting.put(SettingBoxKey.banWordForRecommend,
+                              banWordForRecommend);
+                          setState(() {});
+                          RecommendFilter.update();
+                          if (filter.isNotEmpty) {
+                            SmartDialog.showToast('已保存：$banWordForRecommend');
+                          } else {
+                            SmartDialog.showToast('已清除全部关键词');
+                          }
+                        },
+                      ),
+                    ],
+                  );
+                },
+              );
             },
           ),
           ListTile(

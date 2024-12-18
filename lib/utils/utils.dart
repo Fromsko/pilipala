@@ -39,8 +39,11 @@ class Utils {
     if (number is String) {
       return number;
     }
-    final String res = (number / 10000).toString();
-    if (int.parse(res.split('.')[0]) >= 1) {
+    if (number >= 100000000) {
+      return '${(number / 100000000).toStringAsFixed(1)}亿';
+    } else if (number >= 100000) {
+      return '${(number ~/ 10000).toString()}万';
+    } else if (number > 10000) {
       return '${(number / 10000).toStringAsFixed(1)}万';
     } else {
       return number.toString();
@@ -100,8 +103,8 @@ class Utils {
     if (!emptyStatCheck(videoItem.stat.danmu)) {
       semanticsLabel += ',${Utils.numFormat(videoItem.stat.danmu)}弹幕';
     }
-    if (videoItem.rcmdReason != null && videoItem.rcmdReason.content != '') {
-      semanticsLabel += ',${videoItem.rcmdReason.content}';
+    if (videoItem.rcmdReason != null) {
+      semanticsLabel += ',${videoItem.rcmdReason}';
     }
     if (!emptyStatCheck(videoItem.duration) &&
         (videoItem.duration is! int || videoItem.duration > 0)) {
@@ -139,6 +142,11 @@ class Utils {
     }
 
     return '${hour > 0 ? "${paddingStr(hour)}:" : ""}${paddingStr(minute)}:${paddingStr(second)}';
+  }
+
+  static String shortenChineseDateString(String date) {
+    if (date.contains("年")) return '${date.split("年").first}年';
+    return date;
   }
 
   // 完全相对时间显示
@@ -315,11 +323,14 @@ class Utils {
     }
     LatestDataModel data = LatestDataModel.fromJson(result.data[0]);
     String buildNumber = currentInfo.buildNumber;
+    String remoteVersion = data.tagName!;
     if (Platform.isAndroid) {
       buildNumber = buildNumber.substring(0, buildNumber.length - 1);
+    } else if (Platform.isIOS) {
+      remoteVersion = remoteVersion.replaceAll('-beta', '');
     }
     bool isUpdate =
-        Utils.needUpdate("${currentInfo.version}+$buildNumber", data.tagName!);
+        Utils.needUpdate("${currentInfo.version}+$buildNumber", remoteVersion);
     if (isUpdate) {
       SmartDialog.show(
         animationType: SmartAnimationType.centerFade_otherSlide,

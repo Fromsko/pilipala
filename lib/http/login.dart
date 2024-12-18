@@ -3,12 +3,76 @@ import 'dart:math';
 import 'package:crypto/crypto.dart';
 import 'package:dio/dio.dart';
 import 'package:encrypt/encrypt.dart';
-import 'package:uuid/uuid.dart';
+import '../common/constants.dart';
 import '../models/login/index.dart';
 import '../utils/login.dart';
+import '../utils/utils.dart';
 import 'index.dart';
 
 class LoginHttp {
+  static String deviceId = LoginUtils.genDeviceId();
+  static String buvid = LoginUtils.buvid();
+  static String host = 'passport.bilibili.com';
+  static Map<String, String> headers = {
+    'Host': host,
+    'buvid': buvid,
+    'env': 'prod',
+    'app-key': 'android_hd',
+    'user-agent': Constants.userAgent,
+    'x-bili-trace-id': Constants.traceId,
+    'x-bili-aurora-eid': '',
+    'x-bili-aurora-zone': '',
+    'bili-http-engine': 'cronet',
+    'content-type': 'application/x-www-form-urlencoded; charset=utf-8',
+  };
+
+  static Future<Map<String, dynamic>> getHDcode() async {
+    var params = {
+      'appkey': Constants.appKey,
+      // 'local_id': 'Y952A395BB157D305D8A8340FC2AAECECE17',
+      'local_id': '0',
+      //精确到秒的时间戳
+      'ts': (DateTime.now().millisecondsSinceEpoch ~/ 1000).toString(),
+      'platform': 'android',
+      'mobi_app': 'android_hd',
+    };
+    String sign = Utils.appSign(
+      params,
+      Constants.appKey,
+      Constants.appSec,
+    );
+    var res = await Request()
+        .post(Api.getTVCode, queryParameters: {...params, 'sign': sign});
+    print(res);
+    if (res.data['code'] == 0) {
+      return {'status': true, 'data': res.data['data']};
+    } else {
+      return {'status': false, 'msg': res.data['message']};
+    }
+  }
+
+  static Future codePoll(String authCode) async {
+    var params = {
+      'appkey': Constants.appKey,
+      'auth_code': authCode,
+      'local_id': '0',
+      'ts': (DateTime.now().millisecondsSinceEpoch ~/ 1000).toString(),
+    };
+    String sign = Utils.appSign(
+      params,
+      Constants.appKey,
+      Constants.appSec,
+    );
+    var res = await Request()
+        .post(Api.qrcodePoll, queryParameters: {...params, 'sign': sign});
+    return {
+      'status': res.data['code'] == 0,
+      'code': res.data['code'],
+      'data': res.data['data'],
+      'msg': res.data['message']
+    };
+  }
+
   static Future queryCaptcha() async {
     var res = await Request().get(Api.getCaptcha);
     if (res.data['code'] == 0) {
@@ -21,126 +85,10 @@ class LoginHttp {
     }
   }
 
-  static Future sendSmsCode({
-    int? cid,
-    required int tel,
-    required String token,
-    required String challenge,
-    required String validate,
-    required String seccode,
-  }) async {
-    var res = await Request().post(
-      Api.appSmsCode,
-      data: {
-        'cid': cid,
-        'tel': tel,
-        "source": "main_web",
-        'token': token,
-        'challenge': challenge,
-        'validate': validate,
-        'seccode': seccode,
-      },
-      options: Options(
-        contentType: Headers.formUrlEncodedContentType,
-        // headers: {'user-agent': ApiConstants.userAgent}
-      ),
-    );
-    print(res);
-  }
-
-  // web端验证码
-  static Future sendWebSmsCode({
-    int? cid,
-    required int tel,
-    required String token,
-    required String challenge,
-    required String validate,
-    required String seccode,
-  }) async {
-    Map data = {
-      'cid': cid,
-      'tel': tel,
-      'token': token,
-      'challenge': challenge,
-      'validate': validate,
-      'seccode': seccode,
-    };
-    FormData formData = FormData.fromMap({...data});
-    var res = await Request().post(
-      Api.smsCode,
-      data: formData,
-      options: Options(
-        contentType: Headers.formUrlEncodedContentType,
-      ),
-    );
-    print(res);
-  }
-
-  // web端验证码登录
-  static Future loginInByWebSmsCode() async {}
-
-  // web端密码登录
-  static Future liginInByWebPwd() async {}
-
-  // app端验证码
-  static Future sendAppSmsCode({
-    int? cid,
-    required int tel,
-    required String token,
-    required String challenge,
-    required String validate,
-    required String seccode,
-  }) async {
-    Map<String, dynamic> data = {
-      'cid': cid,
-      'tel': tel,
-      'login_session_id': const Uuid().v4().replaceAll('-', ''),
-      'recaptcha_token': token,
-      'gee_challenge': challenge,
-      'gee_validate': validate,
-      'gee_seccode': seccode,
-      'channel': 'bili',
-      'buvid': buvid(),
-      'local_id': buvid(),
-      // 'ts': DateTime.now().millisecondsSinceEpoch ~/ 1000,
-      'statistics': {
-        "appId": 1,
-        "platform": 3,
-        "version": "7.52.0",
-        "abtest": ""
-      },
-    };
-    // FormData formData = FormData.fromMap({...data});
-    var res = await Request().post(
-      Api.appSmsCode,
-      data: data,
-      options: Options(
-        contentType: Headers.formUrlEncodedContentType,
-      ),
-    );
-    print(res);
-  }
-
-  static String buvid() {
-    var mac = <String>[];
-    var random = Random();
-
-    for (var i = 0; i < 6; i++) {
-      var min = 0;
-      var max = 0xff;
-      var num = (random.nextInt(max - min + 1) + min).toRadixString(16);
-      mac.add(num);
-    }
-
-    var md5Str = md5.convert(utf8.encode(mac.join(':'))).toString();
-    var md5Arr = md5Str.split('');
-    return 'XY${md5Arr[2]}${md5Arr[12]}${md5Arr[22]}$md5Str';
-  }
-
-  // 获取盐hash跟PubKey
+  // 获取salt与PubKey
   static Future getWebKey() async {
-    var res = await Request().get(Api.getWebKey,
-        data: {'disable_rcmd': 0, 'local_id': LoginUtils.generateBuvid()});
+    var res = await Request().get(Api.getWebKey);
+    //data: {'disable_rcmd': 0, 'local_id': LoginUtils.generateBuvid()});
     if (res.data['code'] == 0) {
       return {'status': true, 'data': res.data['data']};
     } else {
@@ -148,29 +96,351 @@ class LoginHttp {
     }
   }
 
-  // app端密码登录
-  static Future loginInByMobPwd({
+  static Future sendSmsCode({
+    required String cid,
     required String tel,
-    required String password,
-    required String key,
-    required String rhash,
+    // String? deviceTouristId,
+    String? gee_challenge,
+    String? gee_seccode,
+    String? gee_validate,
+    String? recaptcha_token,
   }) async {
-    dynamic publicKey = RSAKeyParser().parse(key);
-    String passwordEncryptyed =
-        Encrypter(RSA(publicKey: publicKey)).encrypt(rhash + password).base64;
-    Map<String, dynamic> data = {
-      'username': tel,
-      'password': passwordEncryptyed,
-      'local_id': LoginUtils.generateBuvid(),
-      'disable_rcmd': "0",
+    int timestamp = DateTime.now().millisecondsSinceEpoch;
+    var data = {
+      'appkey': Constants.appKey,
+      'build': '1462100',
+      'buvid': buvid,
+      'c_locale': 'zh_CN',
+      'cid': cid,
+      // if (deviceTouristId != null) 'device_tourist_id': deviceTouristId,
+      'disable_rcmd': '0',
+      if (gee_challenge != null) 'gee_challenge': gee_challenge,
+      if (gee_seccode != null) 'gee_seccode': gee_seccode,
+      if (gee_validate != null) 'gee_validate': gee_validate,
+      'local_id': buvid,
+      // https://chinggg.github.io/post/appre/
+      'login_session_id':
+          md5.convert(utf8.encode(buvid + timestamp.toString())).toString(),
+      'mobi_app': 'android_hd',
+      'platform': 'android',
+      if (recaptcha_token != null) 'recaptcha_token': recaptcha_token,
+      's_locale': 'zh_CN',
+      'statistics': Constants.statistics,
+      'tel': tel,
+      'ts': (timestamp ~/ 1000).toString(),
     };
+    String sign = Utils.appSign(
+      data,
+      Constants.appKey,
+      Constants.appSec,
+    );
+
     var res = await Request().post(
-      Api.loginInByPwdApi,
-      data: data,
+      Api.appSmsCode,
+      data: {...data, 'sign': sign},
       options: Options(
         contentType: Headers.formUrlEncodedContentType,
+        headers: headers,
       ),
     );
     print(res);
+    if (res.data['code'] == 0 && res.data['data']['recaptcha_url'] == "") {
+      return {'status': true, 'data': res.data['data']};
+    } else {
+      return {
+        'status': false,
+        'code': res.data['code'],
+        'msg': res.data['message'],
+        'data': res.data['data']
+      };
+    }
+  }
+
+  // static Future getGuestId(String key) async {
+  //   dynamic publicKey = RSAKeyParser().parse(key);
+  //   var params = {
+  //     'appkey': Constants.appKey,
+  //     'build': '1462100',
+  //     'buvid': buvid,
+  //     'c_locale': 'zh_CN',
+  //     'channel': 'yingyongbao',
+  //     'deviceInfo': 'xxxxxx',
+  //     'disable_rcmd': '0',
+  //     'dt': Uri.encodeComponent(Encrypter(RSA(publicKey: publicKey))
+  //         .encrypt(generateRandomString(16))
+  //         .base64),
+  //     'local_id': buvid,
+  //     'mobi_app': 'android_hd',
+  //     'platform': 'android',
+  //     's_locale': 'zh_CN',
+  //     'statistics': Constants.statistics,
+  //     'ts': (DateTime.now().millisecondsSinceEpoch ~/ 1000).toString(),
+  //   };
+  //   String sign = Utils.appSign(
+  //     params,
+  //     Constants.appKey,
+  //     Constants.appSec,
+  //   );
+  //   var res = await Request().post(Api.getGuestId,
+  //       queryParameters: {...params, 'sign': sign},
+  //       options: Options(
+  //         contentType: Headers.formUrlEncodedContentType,
+  //         headers: headers,
+  //       ));
+  //   print("getGuestId: $res");
+  //   if (res.data['code'] == 0) {
+  //     return {'status': true, 'data': res.data['data']};
+  //   } else {
+  //     return {'status': false, 'msg': res.data['message']};
+  //   }
+  // }
+
+  // app端密码登录
+  static Future loginByPwd({
+    required String username,
+    required String password,
+    required String key,
+    required String salt,
+    String? gee_challenge,
+    String? gee_seccode,
+    String? gee_validate,
+    String? recaptcha_token,
+  }) async {
+    dynamic publicKey = RSAKeyParser().parse(key);
+    print(publicKey);
+    String passwordEncrypted =
+        Encrypter(RSA(publicKey: publicKey)).encrypt(salt + password).base64;
+
+    Map<String, dynamic> data = {
+      'appkey': Constants.appKey,
+      'bili_local_id': deviceId,
+      'build': '1462100',
+      'buvid': buvid,
+      'c_locale': 'zh_CN',
+      'channel': 'yingyongbao',
+      'device': 'phone',
+      'device_id': deviceId,
+      //'device_meta': '',
+      'device_name': 'vivo',
+      'device_platform': 'Android14vivo',
+      'disable_rcmd': '0',
+      'dt': Uri.encodeComponent(Encrypter(RSA(publicKey: publicKey))
+          .encrypt(LoginUtils.generateRandomString(16))
+          .base64),
+      'from_pv': 'main.homepage.avatar-nologin.all.click',
+      'from_url': Uri.encodeComponent('bilibili://pegasus/promo'),
+      if (gee_challenge != null) 'gee_challenge': gee_challenge,
+      if (gee_seccode != null) 'gee_seccode': gee_seccode,
+      if (gee_validate != null) 'gee_validate': gee_validate,
+      'local_id': buvid, //LoginUtils.generateBuvid(),
+      'mobi_app': 'android_hd',
+      'password': passwordEncrypted,
+      'permission': 'ALL',
+      'platform': 'android',
+      if (recaptcha_token != null) 'recaptcha_token': recaptcha_token,
+      's_locale': 'zh_CN',
+      'statistics': Constants.statistics,
+      'ts': (DateTime.now().millisecondsSinceEpoch ~/ 1000).toString(),
+      'username': username,
+    };
+    String sign = Utils.appSign(
+      data,
+      Constants.appKey,
+      Constants.appSec,
+    );
+    data['sign'] = sign;
+    data.map((key, value) {
+      print('$key: $value');
+      return MapEntry<String, dynamic>(key, value);
+    });
+    var res = await Request().post(
+      Api.loginByPwdApi,
+      data: data,
+      options: Options(
+        contentType: Headers.formUrlEncodedContentType,
+        headers: headers,
+        //responseType: ResponseType.plain
+      ),
+    );
+    print(res);
+    if (res.data['code'] == 0) {
+      return {
+        'status': true,
+        'data': res.data['data'],
+        'msg': res.data['message'],
+      };
+    } else {
+      return {
+        'status': false,
+        'code': res.data['code'],
+        'msg': res.data['message'],
+        'data': res.data['data']
+      };
+    }
+  }
+
+  // app端短信验证码登录
+  static Future loginBySms({
+    required String captchaKey,
+    required String tel,
+    required String code,
+    required String cid,
+    required String key,
+  }) async {
+    dynamic publicKey = RSAKeyParser().parse(key);
+    Map<String, dynamic> data = {
+      'appkey': Constants.appKey,
+      'bili_local_id': deviceId,
+      'build': '1462100',
+      'buvid': buvid,
+      'c_locale': 'zh_CN',
+      'captcha_key': captchaKey,
+      'channel': 'yingyongbao',
+      'cid': cid,
+      'code': code,
+      'device': 'phone',
+      'device_id': deviceId,
+      //'device_meta': '',
+      'device_name': 'vivo',
+      'device_platform': 'Android14vivo',
+      // 'device_tourist_id': '',
+      'disable_rcmd': '0',
+      'dt': Uri.encodeComponent(Encrypter(RSA(publicKey: publicKey))
+          .encrypt(LoginUtils.generateRandomString(16))
+          .base64),
+      'from_pv': 'main.my-information.my-login.0.click',
+      'from_url': Uri.encodeComponent('bilibili://user_center/mine'),
+      'local_id': buvid,
+      'mobi_app': 'android_hd',
+      'platform': 'android',
+      's_locale': 'zh_CN',
+      'statistics': Constants.statistics,
+      'tel': tel,
+      'ts': (DateTime.now().millisecondsSinceEpoch ~/ 1000).toString(),
+    };
+    String sign = Utils.appSign(
+      data,
+      Constants.appKey,
+      Constants.appSec,
+    );
+    data['sign'] = sign;
+    data.map((key, value) {
+      print('$key: $value');
+      return MapEntry<String, dynamic>(key, value);
+    });
+    var res = await Request().post(
+      Api.logInByAppSms,
+      data: data,
+      options: Options(
+        contentType: Headers.formUrlEncodedContentType,
+        headers: headers,
+        //responseType: ResponseType.plain
+      ),
+    );
+    print(res);
+    if (res.data['code'] == 0) {
+      return {'status': true, 'data': res.data['data']};
+    } else {
+      return {
+        'status': false,
+        'code': res.data['code'],
+        'msg': res.data['message'],
+        'data': res.data['data']
+      };
+    }
+  }
+
+  // 密码登录时风控验证手机
+  static Future safeCenterGetInfo({
+    required String tmpCode,
+  }) async {
+    var res = await Request().get(Api.safeCenterGetInfo, data: {
+      'tmp_code': tmpCode,
+    });
+    print(res);
+    if (res.data['code'] == 0) {
+      return {'status': true, 'data': res.data['data']};
+    } else {
+      return {
+        'status': false,
+        'code': res.data['code'],
+        'msg': res.data['message'],
+        'data': res.data['data']
+      };
+    }
+  }
+
+  // 风控验证手机前的验证码
+  static Future preCapture() async {
+    var res = await Request().post(Api.preCapture);
+    print(res);
+    if (res.data['code'] == 0) {
+      return {'status': true, 'data': res.data['data']};
+    } else {
+      return {
+        'status': false,
+        'code': res.data['code'],
+        'msg': res.data['message'],
+        'data': res.data['data']
+      };
+    }
+  }
+
+  // 风控验证手机
+  static Future safeCenterSmsCode({
+    String? smsType,
+    required String tmpCode,
+    required String geeChallenge,
+    required String geeSeccode,
+    required String geeValidate,
+    required String recaptchaToken,
+  }) async {
+    var res = await Request().post(Api.safeCenterSmsCode, data: {
+      'sms_type': smsType ?? 'loginTelCheck',
+      'tmp_code': tmpCode,
+      'gee_challenge': geeChallenge,
+      'gee_seccode': geeSeccode,
+      'gee_validate': geeValidate,
+      'recaptcha_token': recaptchaToken,
+    });
+    print(res);
+    if (res.data['code'] == 0) {
+      return {'status': true, 'data': res.data['data']};
+    } else {
+      return {
+        'status': false,
+        'code': res.data['code'],
+        'msg': res.data['message'],
+        'data': res.data['data']
+      };
+    }
+  }
+
+  static Future safeCenterSmsVerify(
+      {String? type,
+      required String code,
+      required String tmpCode,
+      required String requestId,
+      required String source,
+      required String captchaKey}) async {
+    var res = await Request().post(Api.safeCenterSmsVerify, data: {
+      'type': type ?? 'loginTelCheck',
+      'code': code,
+      'tmp_code': tmpCode,
+      'request_id': requestId,
+      'source': source,
+      'captcha_key': captchaKey,
+    });
+    print(res);
+    if (res.data['code'] == 0) {
+      return {'status': true, 'data': res.data['data']};
+    } else {
+      return {
+        'status': false,
+        'code': res.data['code'],
+        'msg': res.data['message'],
+        'data': res.data['data']
+      };
+    }
   }
 }

@@ -52,7 +52,7 @@ class _RelatedVideoPanelState extends State<RelatedVideoPanel>
                         mainAxisSpacing: StyleString.safeSpace,
                         crossAxisSpacing: StyleString.safeSpace,
                         maxCrossAxisExtent: Grid.maxRowWidth * 2,
-                        childAspectRatio: StyleString.aspectRatio * 2.3,
+                        childAspectRatio: StyleString.aspectRatio * 2.4,
                         mainAxisExtent: 0),
                     delegate: SliverChildBuilderDelegate((context, index) {
                       if (index == relatedVideoList.length) {
@@ -65,18 +65,16 @@ class _RelatedVideoPanelState extends State<RelatedVideoPanel>
                             showPubdate: true,
                             longPress: () {
                               try {
-                                _relatedController.popupDialog =
+                                _relatedController.popupDialog.add(
                                     _createPopupDialog(_relatedController
-                                        .relatedVideoList[index]);
-                                Overlay.of(context)
-                                    .insert(_relatedController.popupDialog!);
+                                        .relatedVideoList[index]));
+                                Overlay.of(context).insert(
+                                    _relatedController.popupDialog.last!);
                               } catch (err) {
                                 return {};
                               }
                             },
-                            longPressEnd: () {
-                              _relatedController.popupDialog?.remove();
-                            },
+                            longPressEnd: _removePopupDialog,
                           ),
                         );
                       }
@@ -85,7 +83,10 @@ class _RelatedVideoPanelState extends State<RelatedVideoPanel>
                 );
               } else {
                 // 请求错误
-                return HttpError(errMsg: '出错了', fn: () {});
+                return HttpError(errMsg: '出错了', fn: () {
+                  _futureBuilder = _relatedController.queryRelatedVideo();
+                  _futureBuilder.then((value) => setState(() {}));
+                });
               }
             } else {
               // 骨架屏
@@ -94,7 +95,7 @@ class _RelatedVideoPanelState extends State<RelatedVideoPanel>
                     mainAxisSpacing: StyleString.safeSpace,
                     crossAxisSpacing: StyleString.safeSpace,
                     maxCrossAxisExtent: Grid.maxRowWidth * 2,
-                    childAspectRatio: StyleString.aspectRatio * 2.3,
+                    childAspectRatio: StyleString.aspectRatio * 2.4,
                     mainAxisExtent: 0),
                 delegate: SliverChildBuilderDelegate((context, index) {
                   return const VideoCardHSkeleton();
@@ -105,13 +106,19 @@ class _RelatedVideoPanelState extends State<RelatedVideoPanel>
         ));
   }
 
+  void _removePopupDialog() {
+    _relatedController.popupDialog.last?.remove();
+    _relatedController.popupDialog.removeLast();
+  }
+
   OverlayEntry _createPopupDialog(videoItem) {
     return OverlayEntry(
       builder: (BuildContext context) => AnimatedDialog(
-        closeFn: _relatedController.popupDialog?.remove,
+        closeFn: _removePopupDialog,
         child: OverlayPop(
-            videoItem: videoItem,
-            closeFn: _relatedController.popupDialog?.remove),
+          videoItem: videoItem,
+          closeFn: _removePopupDialog,
+        ),
       ),
     );
   }

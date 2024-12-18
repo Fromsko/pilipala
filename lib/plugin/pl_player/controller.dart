@@ -24,6 +24,7 @@ import 'package:screen_brightness/screen_brightness.dart';
 import 'package:universal_platform/universal_platform.dart';
 
 import '../../models/video/play/subtitle.dart';
+import '../../pages/video/detail/controller.dart';
 // import 'package:wakelock_plus/wakelock_plus.dart';
 
 Box videoStorage = GStorage.video;
@@ -252,6 +253,7 @@ class PlPlayerController {
   late List<double> speedsList;
   double? defaultDuration;
   late bool enableAutoLongPressSpeed = false;
+  late bool enableLongShowControl;
 
   // 播放顺序相关
   PlayRepeat playRepeat = PlayRepeat.pause;
@@ -325,7 +327,7 @@ class PlPlayerController {
         setting.get(SettingBoxKey.enableShowDanmaku, defaultValue: false);
     danmakuWeight.value =
         setting.get(SettingBoxKey.danmakuWeight, defaultValue: 0);
-    danmakuFilterRule.value = setting.get(SettingBoxKey.danmakuFilterRule,
+    danmakuFilterRule.value = localCache.get(LocalCacheKey.danmakuFilterRule,
         defaultValue: []).map<Map<String, dynamic>>((e) {
       return Map<String, dynamic>.from(e);
     }).toList();
@@ -338,7 +340,7 @@ class PlPlayerController {
         setting.get(SettingBoxKey.danmakuFontScale, defaultValue: 1.0);
     // 弹幕时间
     danmakuDurationVal =
-        setting.get(SettingBoxKey.danmakuDuration, defaultValue: 4.0);
+        setting.get(SettingBoxKey.danmakuDuration, defaultValue: 7.29);
     // 描边粗细
     strokeWidth = setting.get(SettingBoxKey.strokeWidth, defaultValue: 1.5);
     // 弹幕字体粗细
@@ -360,6 +362,8 @@ class PlPlayerController {
       _longPressSpeed.value = videoStorage
           .get(VideoBoxKey.longPressSpeedDefault, defaultValue: 3.0);
     }
+    enableLongShowControl =
+        setting.get(SettingBoxKey.enableLongShowControl, defaultValue: false);
     speedsList = List<double>.from(videoStorage
         .get(VideoBoxKey.customSpeedsList, defaultValue: <double>[]));
     for (final PlaySpeed i in PlaySpeed.values) {
@@ -505,11 +509,11 @@ class PlPlayerController {
     int bufferSize =
         setting.get(SettingBoxKey.expandBuffer, defaultValue: false)
             ? (videoType.value == 'live' ? 64 * 1024 * 1024 : 32 * 1024 * 1024)
-            : (videoType.value == 'live' ? 32 * 1024 * 1024 : 5 * 1024 * 1024);
+            : (videoType.value == 'live' ? 16 * 1024 * 1024 : 3 * 1024 * 1024);
     Player player = _videoPlayerController ??
         Player(
           configuration: PlayerConfiguration(
-            // 默认缓冲 5M 大小
+            // 默认缓冲 3M 大小
             bufferSize: bufferSize,
           ),
         );
@@ -534,9 +538,8 @@ class PlPlayerController {
     await player.setAudioTrack(
       AudioTrack.auto(),
     );
-
     // 音轨
-    if (dataSource.audioSource != '' && dataSource.audioSource != null) {
+    if (dataSource.audioSource?.isNotEmpty ?? false) {
       await pp.setProperty(
         'audio-files',
         UniversalPlatform.isWindows
@@ -574,7 +577,6 @@ class PlPlayerController {
         );
 
     player.setPlaylistMode(looping);
-
     if (dataSource.type == DataSourceType.asset) {
       final assetUrl = dataSource.videoSource!.startsWith("asset://")
           ? dataSource.videoSource!
@@ -599,7 +601,25 @@ class PlPlayerController {
 
   Future refreshPlayer() async {
     Duration currentPos = _position.value;
-    await _videoPlayerController?.open(
+    if (_videoPlayerController == null) {
+      SmartDialog.showToast('视频播放器为空，请重新进入本页面');
+      return;
+    }
+    if (dataSource.videoSource?.isEmpty ?? true) {
+      SmartDialog.showToast('视频源为空，请重新进入本页面');
+      return;
+    }
+    if (dataSource.audioSource?.isEmpty ?? true) {
+      SmartDialog.showToast('音频源为空');
+    } else {
+      await (_videoPlayerController!.platform as NativePlayer).setProperty(
+        'audio-files',
+        UniversalPlatform.isWindows
+            ? dataSource.audioSource!.replaceAll(';', '\\;')
+            : dataSource.audioSource!.replaceAll(':', '\\:'),
+      );
+    }
+    await _videoPlayerController!.open(
       Media(
         dataSource.videoSource!,
         httpHeaders: dataSource.httpHeaders,
@@ -712,17 +732,52 @@ class PlPlayerController {
           }
           makeHeartBeat(event.inSeconds);
         }),
-        videoPlayerController!.stream.duration.listen((event) {
+        videoPlayerController!.stream.duration.listen((Duration event) {
           duration.value = event;
         }),
-        videoPlayerController!.stream.buffer.listen((event) {
+        videoPlayerController!.stream.buffer.listen((Duration event) {
           _buffered.value = event;
           updateBufferedSecond();
         }),
-        videoPlayerController!.stream.buffering.listen((event) {
+        videoPlayerController!.stream.buffering.listen((bool event) {
           isBuffering.value = event;
           videoPlayerServiceHandler.onStatusChange(
               playerStatus.status.value, event);
+        }),
+        // videoPlayerController!.stream.log.listen((event) {
+        //   print('videoPlayerController!.stream.log.listen');
+        //   print(event);
+        //   SmartDialog.showToast('视频加载日志： $event');
+        // }),
+        videoPlayerController!.stream.error.listen((String event) {
+          // 直播的错误提示没有参考价值，均不予显示
+          if (videoType.value == 'live') return;
+          if (event.startsWith("Failed to open https://") ||
+              event.startsWith("Can not open external file https://") ||
+              //tcp: ffurl_read returned 0xdfb9b0bb
+              //tcp: ffurl_read returned 0xffffff99
+              event.startsWith('tcp: ffurl_read returned ')) {
+            EasyThrottle.throttle('videoPlayerController!.stream.error.listen',
+                const Duration(milliseconds: 10000), () {
+              Future.delayed(const Duration(milliseconds: 3000), () {
+                print("isBuffering.value: ${isBuffering.value}");
+                print("_buffered.value: ${_buffered.value}");
+                if (isBuffering.value && _buffered.value == Duration.zero) {
+                  refreshPlayer();
+                  SmartDialog.showToast('视频链接打开失败，重试中',
+                      displayTime: const Duration(milliseconds: 500));
+                }
+              });
+            });
+            return;
+          }
+          print('videoPlayerController!.stream.error.listen');
+          print(event);
+          if (event.startsWith('Could not open codec')) {
+            SmartDialog.showToast('无法加载解码器, $event，可能会切换至软解');
+            return;
+          }
+          SmartDialog.showToast('视频加载错误, $event');
         }),
         // videoPlayerController!.stream.volume.listen((event) {
         //   if (!mute.value && _volumeBeforeMute != event) {
@@ -730,10 +785,10 @@ class PlPlayerController {
         //   }
         // }),
         // 媒体通知监听
-        onPlayerStatusChanged.listen((event) {
+        onPlayerStatusChanged.listen((PlayerStatus event) {
           videoPlayerServiceHandler.onStatusChange(event, isBuffering.value);
         }),
-        onPositionChanged.listen((event) {
+        onPositionChanged.listen((Duration event) {
           EasyThrottle.throttle(
               'mediaServicePosition',
               const Duration(seconds: 1),
@@ -766,6 +821,7 @@ class PlPlayerController {
         /// 拖动进度条调节时，不等待第一帧，防止抖动
         await _videoPlayerController?.stream.buffer.first;
       }
+      danmakuController?.clear();
       await _videoPlayerController?.seek(position);
       // if (playerStatus.stopped) {
       //   play();
@@ -778,6 +834,7 @@ class PlPlayerController {
         //_timerForSeek = null;
         if (duration.value.inSeconds != 0) {
           await _videoPlayerController?.stream.buffer.first;
+          danmakuController?.clear();
           await _videoPlayerController?.seek(position);
           // if (playerStatus.status.value == PlayerStatus.paused) {
           //   play();
@@ -840,13 +897,18 @@ class PlPlayerController {
 
     await _videoPlayerController?.play();
 
-    await getCurrentVolume();
-    await getCurrentBrightness();
-
     playerStatus.status.value = PlayerStatus.playing;
     // screenManager.setOverlays(false);
 
     audioSessionHandler.setActive(true);
+
+    // Future.delayed(const Duration(milliseconds: 100), () {
+    //   getCurrentVolume();
+    //   if (setting.get(SettingBoxKey.enableAutoBrightness, defaultValue: false)
+    //       as bool) {
+    //     getCurrentBrightness();
+    //   }
+    // });
   }
 
   /// 暂停播放
@@ -875,7 +937,8 @@ class PlPlayerController {
     if (_timer != null) {
       _timer!.cancel();
     }
-    _timer = Timer(const Duration(milliseconds: 3000), () {
+    Duration waitingTime = Duration(seconds: enableLongShowControl ? 30 : 3);
+    _timer = Timer(waitingTime, () {
       if (!isSliderMoving.value) {
         controls = false;
       }
@@ -1076,7 +1139,7 @@ class PlPlayerController {
   }
 
   /// 设置长按倍速状态 live模式下禁用
-  void setDoubleSpeedStatus(bool val) {
+  void setDoubleSpeedStatus(bool val) async {
     if (videoType.value == 'live') {
       return;
     }
@@ -1085,11 +1148,11 @@ class PlPlayerController {
     }
     _doubleSpeedStatus.value = val;
     if (val) {
-      setPlaybackSpeed(
+      await setPlaybackSpeed(
           enableAutoLongPressSpeed ? playbackSpeed * 2 : longPressSpeed);
     } else {
       print(playbackSpeed);
-      setPlaybackSpeed(playbackSpeed);
+      await setPlaybackSpeed(playbackSpeed);
     }
   }
 
@@ -1106,6 +1169,7 @@ class PlPlayerController {
 
   // 全屏
   Future<void> triggerFullScreen({bool status = true}) async {
+    stopScreenTimer();
     FullScreenMode mode = FullScreenModeCode.fromCode(
         setting.get(SettingBoxKey.fullScreenMode, defaultValue: 0))!;
     bool removeSafeArea = setting.get(SettingBoxKey.videoPlayerRemoveSafeArea,
@@ -1119,6 +1183,10 @@ class PlPlayerController {
 
       /// 进入全屏
       if (mode == FullScreenMode.none) {
+        return;
+      }
+      if (mode == FullScreenMode.gravity) {
+        fullAutoModeForceSensor();
         return;
       }
       if (mode == FullScreenMode.vertical ||
@@ -1253,7 +1321,10 @@ class PlPlayerController {
       }
       _instance = null;
       // 关闭所有视频页面恢复亮度
-      resetBrightness();
+      if (setting.get(SettingBoxKey.enableAutoBrightness, defaultValue: false)
+          as bool) {
+        resetBrightness();
+      }
       videoPlayerServiceHandler.clear();
     } catch (err) {
       print(err);
